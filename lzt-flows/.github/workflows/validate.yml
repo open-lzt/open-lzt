@@ -1,0 +1,94 @@
+name: validate
+
+# `pull_request`, NEVER `pull_request_target`.
+#
+# This is the single most important line in the repository. `pull_request_target` runs the BASE
+# branch's workflow with a WRITE token and repository secrets, in the context of a fork's pull
+# request. Every module here arrives as a pull request from a stranger. With `pull_request_target`,
+# opening one against this repo would hand that stranger a write token to the registry every
+# lzt-flow install trusts — one keyword away from supply-chain compromise (R-7).
+#
+# `pull_request` runs the fork's code with a read-only token and no secrets. The permissions block
+# below says so a second time, because defaults change and this must not.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No workflow may trigger on the dangerous event
+        # Enforced by a check, not by a comment: an edit that reintroduces the trigger fails here
+        # rather than in an incident report.
+        #
+        # It matches the YAML KEY, not the word. A plain search for the word finds the paragraph
+        # at the top of this file that explains the ban — and finds itself inside this very step —
+        # so it would fail forever and get deleted for being broken. The key form only appears
+        # where the event is actually being subscribed to.
+        run: |
+          if grep -rnE '^[[:space:]]*pull_request_target:' .github/workflows/; then
+            echo "::error::a workflow triggers on the forked-PR event with a write token — see the note at the top of validate.yml"
+            exit 1
+          fi
+
+      - name: Code in a module is the owner's alone
+        # A `kind: flow` module is data: anyone may submit one, because the worst a graph can do is
+        # what its nodes can do and the validator checks every one of them. A `kind: python` module
+        # is a node pack — installing it runs its author's code on an operator's box with their
+        # market tokens, and no static check can tell you whether that is safe.
+        #
+        # This step is a GUARDRAIL, not the boundary. A fork's PR can edit this very file and drop
+        # it. What keeps code out of main is CODEOWNERS + branch protection — a human merge. The
+        # script says so at length; read it before relying on this.
+        run: python .github/scripts/check_code_owner.py
+
+      - name: One concern per pull request
+        # A PR that edits authors.yml AND a module asks a reviewer to check an identity claim and a
+        # flow in one pass. That is how "add myself as an author" gets merged alongside something
+        # nobody looked at twice (R-11).
+        run: |
+          changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          if echo "$changed" | grep -q '^authors.yml$' && echo "$changed" | grep -q '^modules/'; then
+            echo "::error::split this PR: authors.yml and module changes are reviewed separately"
+            exit 1
+          fi
+
+      - name: index.json is generated, never written by hand
+        # It is the integrity record every install reads. A hand-edited checksum is either a mistake
+        # or the whole attack; generate.yml rebuilds it on main.
+        run: |
+          changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          if echo "$changed" | grep -q '^index.json$'; then
+            echo "::error::index.json is generated on main by generate.yml — remove it from this PR"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the validator
+        # The SAME validator the backend runs (D-6). Installing lzt-flow rather than reimplementing
+        # its checks here is what keeps CI's verdict and the backend's identical: a module that
+        # passes this step is a module that will import.
+        run: pip install "lzt-flow @ git+https://github.com/open-lzt/auto-lzt.git@main"
+
+      - name: The author must own the module
+        run: python .github/scripts/check_author.py
+
+      - name: Validate every changed module
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+                    | grep '^modules/' | cut -d/ -f2 | sort -u || true)
+          if [ -z "$changed" ]; then echo "no modules changed"; exit 0; fi
+          for name in $changed; do
+            echo "::group::$name"
+            lzt-flow-validate "modules/$name"
+            echo "::endgroup::"
+          done

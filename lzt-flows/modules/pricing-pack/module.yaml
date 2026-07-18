@@ -1,0 +1,6 @@
+schema_version: 1
+name: pricing-pack
+version: 1.0.0
+author: zlexdev
+kind: python
+description: Узлы ценообразования — процент от цены и округление до красивого числа.

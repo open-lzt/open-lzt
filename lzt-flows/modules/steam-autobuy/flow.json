@@ -1,0 +1,56 @@
+{
+  "name": "steam-autobuy",
+  "entry_node_id": "search",
+  "nodes": [
+    {
+      "id": "search",
+      "type": "steam.search",
+      "inputs": {
+        "max_price": { "literal": 500 },
+        "budget_total": { "literal": 2000 },
+        "currency": { "literal": "rub" },
+        "game": { "literal": 730 },
+        "order_by": { "literal": "price_to_up" },
+        "no_vac": { "literal": true },
+        "no_trade_ban": { "literal": true },
+        "no_market_limit": { "literal": true },
+        "mafile": { "literal": true },
+        "daybreak": { "literal": 30 },
+        "not_origin": { "literal": "brute,stealer" },
+        "limit": { "literal": 5 }
+      },
+      "edges": { "next": "found" }
+    },
+    {
+      "id": "found",
+      "type": "logic.condition",
+      "inputs": {
+        "left": { "ref": "search.found" },
+        "op": { "literal": "gt" },
+        "right": { "literal": 0 }
+      },
+      "edges": { "true": "buy" }
+    },
+    {
+      "id": "buy",
+      "type": "steam.fast_buy",
+      "inputs": {
+        "item_id": { "ref": "search.item_id" },
+        "price": { "ref": "search.price" },
+        "max_price": { "literal": 500 },
+        "dry_run": { "literal": true }
+      },
+      "edges": { "next": "tell" }
+    },
+    {
+      "id": "tell",
+      "type": "tg.send_message",
+      "inputs": {
+        "bot_token": { "literal": "PUT-YOUR-BOT-TOKEN-HERE" },
+        "chat_id": { "literal": "PUT-YOUR-CHAT-ID-HERE" },
+        "text": { "ref": "buy.reason" }
+      },
+      "edges": {}
+    }
+  ]
+}

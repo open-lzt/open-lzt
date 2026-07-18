@@ -1,0 +1,11 @@
+[Unit]
+Description=open-lzt rolling auto-updater (one pass)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/open-lzt
+Environment=PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env bash /opt/open-lzt/deploy/autoupdate.sh

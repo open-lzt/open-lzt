@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "modules": [
+    {
+      "name": "bump-daily",
+      "version": "1.0.0",
+      "sha256": "59997e61573e5e21a9b647363fb0b40ecac1a49180476a9a191a6ca60eb8b117",
+      "kind": "flow"
+    },
+    {
+      "name": "notify-pack",
+      "version": "1.0.0",
+      "sha256": "c10f87019b3b543e8cafa69974c0fdb877861f45030d5cf9f3df720ca497e88d",
+      "kind": "python"
+    },
+    {
+      "name": "pricing-pack",
+      "version": "1.0.0",
+      "sha256": "da84ed2c797bd0a7306c293d3758bb8a5d19a25ec29f7bb2602f52512e7de161",
+      "kind": "python"
+    },
+    {
+      "name": "steam-autobuy",
+      "version": "1.0.0",
+      "sha256": "55a3be2f6f60e54c8e75029ddafb2e3ee9bcd80f2e27478d6f466a139ae9ad86",
+      "kind": "flow"
+    }
+  ]
+}

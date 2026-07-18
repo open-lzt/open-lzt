@@ -1,0 +1,30 @@
+[Unit]
+Description=lzt-testnet mock marketplace
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=open-lzt
+Group=open-lzt
+WorkingDirectory=/opt/open-lzt/projects/testnet
+EnvironmentFile=/opt/open-lzt/deploy/env/testnet.env
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/local/bin/uv run uvicorn lzt_testnet.api.app:create_app --factory --host 127.0.0.1 --port 8765
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+# --- hardening (least privilege) ---
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=yes
+LockPersonality=yes
+ReadWritePaths=/opt/open-lzt
+
+[Install]
+WantedBy=multi-user.target

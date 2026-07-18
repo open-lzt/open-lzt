@@ -1,0 +1,10 @@
+# Auto-update config for lzt-flow (API + worker). Disabled by default.
+enabled: false
+submodule: projects/flow
+branch: master
+units: "open-lzt-flow-api open-lzt-flow-worker"
+migrate: flow              # runs the flow alembic chain before restart
+health_url: "http://127.0.0.1:8000/catalog/list"
+e2e_cmd: ""                # e.g. uv run --project projects/flow pytest -q -m e2e
+rollback_on_failure: true
+verify: false               # require a GPG-signed commit before updating (git verify-commit)

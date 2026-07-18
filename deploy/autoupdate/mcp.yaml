@@ -1,0 +1,11 @@
+# Auto-update config for the MCP server. Disabled by default.
+enabled: false
+submodule: projects/mcp
+branch: main
+units: "open-lzt-mcp"
+migrate: none
+health_url: ""             # mcp has no HTTP health route; port-listen check is used
+health_port: 8770
+e2e_cmd: ""
+rollback_on_failure: true
+verify: false               # require a GPG-signed commit before updating (git verify-commit)

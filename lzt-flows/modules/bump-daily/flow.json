@@ -1,0 +1,36 @@
+{
+  "name": "bump-daily",
+  "entry_node_id": "lots",
+  "nodes": [
+    {
+      "id": "lots",
+      "type": "logic.get_my_lots",
+      "inputs": {},
+      "edges": {
+        "next": "each"
+      }
+    },
+    {
+      "id": "each",
+      "type": "logic.for_each_lot",
+      "inputs": {
+        "item_ids": {
+          "ref": "lots.item_ids"
+        }
+      },
+      "edges": {
+        "body": "bump"
+      }
+    },
+    {
+      "id": "bump",
+      "type": "market.bump",
+      "inputs": {
+        "item_id": {
+          "ref": "each.item_id"
+        }
+      },
+      "edges": {}
+    }
+  ]
+}

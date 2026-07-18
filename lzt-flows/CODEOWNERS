@@ -1,0 +1,11 @@
+# Every path needs a maintainer's review. The registry's only real defence is that a human read the
+# module before it merged: the checksum proves the bytes did not change in transit, not that they
+# were ever safe (R-6).
+*                   @zlexdev
+
+# These three decide what the whole registry means, so they are called out separately rather than
+# left to the catch-all above. index.json is generated on main and must never merge from a PR;
+# authors.yml is an identity roster; .github/ is the CI that enforces the rest.
+/index.json         @zlexdev
+/authors.yml        @zlexdev
+/.github/           @zlexdev

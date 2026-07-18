@@ -1,0 +1,10 @@
+# Auto-update config for the testnet mock service. Disabled by default.
+enabled: false
+submodule: projects/testnet
+branch: main
+units: "open-lzt-testnet"
+migrate: none
+health_url: "http://127.0.0.1:8765/testnet/health"
+e2e_cmd: ""
+rollback_on_failure: true
+verify: false               # require a GPG-signed commit before updating (git verify-commit)

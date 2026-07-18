@@ -1,0 +1,30 @@
+[Unit]
+Description=lzt-flow API
+After=network-online.target open-lzt-eventus.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=open-lzt
+Group=open-lzt
+WorkingDirectory=/opt/open-lzt/projects/flow
+EnvironmentFile=/opt/open-lzt/deploy/env/flow.env
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/local/bin/uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+# --- hardening (least privilege) ---
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=yes
+LockPersonality=yes
+ReadWritePaths=/opt/open-lzt
+
+[Install]
+WantedBy=multi-user.target

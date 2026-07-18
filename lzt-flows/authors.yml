@@ -1,0 +1,4 @@
+# GitHub logins allowed to publish modules. Adding yourself is its own pull request — CI refuses a
+# PR that touches this file and a module together, so an identity claim is never reviewed in the
+# same pass as the flow it would vouch for (R-11).
+- zlexdev

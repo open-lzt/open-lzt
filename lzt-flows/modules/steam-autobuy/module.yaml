@@ -1,0 +1,13 @@
+schema_version: 1
+name: steam-autobuy
+version: 1.0.0
+author: zlexdev
+kind: flow
+description: >-
+  Автопокупка Steam-аккаунта: поиск с фильтрами и бюджетом, покупка лучшего кандидата,
+  уведомление в телеграм. dry_run включён — выключите его, когда доверитесь фильтрам.
+requires_nodes:
+  - steam.search
+  - steam.fast_buy
+  - logic.condition
+  - tg.send_message

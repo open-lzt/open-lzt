@@ -1,0 +1,30 @@
+[Unit]
+Description=lzt-eventus event engine
+After=network-online.target open-lzt-testnet.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=open-lzt
+Group=open-lzt
+WorkingDirectory=/opt/open-lzt/projects/eventus
+EnvironmentFile=/opt/open-lzt/deploy/env/eventus.env
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/local/bin/uv run python -m lzt_eventus run
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+# --- hardening (least privilege) ---
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=yes
+LockPersonality=yes
+ReadWritePaths=/opt/open-lzt
+
+[Install]
+WantedBy=multi-user.target

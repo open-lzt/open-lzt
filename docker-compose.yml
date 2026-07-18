@@ -1,0 +1,47 @@
+# Infra-only compose for the open-lzt stand: Postgres + Redis, bound to loopback.
+# The five Python services run under systemd via `uv run` (see deploy/systemd/), not in
+# containers — the monorepo uses local path-deps (pylzt/eventus) that are awkward to build into
+# per-service images, and this is an internal test stand.
+# Two logical DBs live in the one Postgres (lztflow, lzteventus); install.sh creates the second.
+name: open-lzt
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lzt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lzt}
+      POSTGRES_DB: ${POSTGRES_DB:-lztflow}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lzt} -d ${POSTGRES_DB:-lztflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Redis holds the money-idempotency guards (idem:*) and the arq job queue, so an unauthenticated
+    # Redis is not a config smell: anything that can reach this port can DEL the guards until every
+    # paid node starts duplicating its effect, or push an arq job and get code execution in the
+    # worker. The egress fence in lzt-flow blocks the obvious route here; this is the wall behind
+    # it, because a fence must never be the only thing standing.
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env (install.sh generates it)}"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--no-auth-warning", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:

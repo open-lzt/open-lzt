@@ -1,0 +1,24 @@
+[submodule "projects/pylzt"]
+	path = projects/pylzt
+	url = https://github.com/open-lzt/pylzt.git
+	branch = main
+[submodule "projects/testnet"]
+	path = projects/testnet
+	url = https://github.com/open-lzt/lzt-testnet.git
+	branch = main
+[submodule "projects/eventus"]
+	path = projects/eventus
+	url = https://github.com/open-lzt/lzt-eventus.git
+	branch = main
+[submodule "projects/eventus-sdk"]
+	path = projects/eventus-sdk
+	url = https://github.com/open-lzt/lzt-eventus-sdk.git
+	branch = main
+[submodule "projects/flow"]
+	path = projects/flow
+	url = https://github.com/open-lzt/auto-lzt.git
+	branch = main
+[submodule "projects/mcp"]
+	path = projects/mcp
+	url = https://github.com/open-lzt/lzt-mcp.git
+	branch = main

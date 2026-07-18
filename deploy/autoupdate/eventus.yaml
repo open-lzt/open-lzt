@@ -1,0 +1,10 @@
+# Auto-update config for the eventus event engine. Disabled by default.
+enabled: false
+submodule: projects/eventus
+branch: master
+units: "open-lzt-eventus"
+migrate: eventus            # runs the eventus alembic chain before restart
+health_url: "http://127.0.0.1:27543/healthz"
+e2e_cmd: ""                 # e.g. uv run --project projects/eventus pytest -q -m e2e
+rollback_on_failure: true
+verify: false               # require a GPG-signed commit before updating (git verify-commit)
