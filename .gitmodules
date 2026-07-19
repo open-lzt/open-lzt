@@ -25,3 +25,6 @@
 [submodule "lzt-flows"]
 	path = lzt-flows
 	url = https://github.com/open-lzt/lzt-flows.git
+[submodule "projects/lzt-ui"]
+	path = projects/lzt-ui
+	url = https://github.com/open-lzt/lzt-ui.git
