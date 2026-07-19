@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Форум — lzt-ui</title>
+<link rel="stylesheet" href="../lzt-ui.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.8V4h6v6.8l2 2.2H7l2-2.2z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h5l2 3h4l2-3h5"/><path d="M5 5h14l2 7v7H3v-7z"/></symbol>
+</svg>
+
+<div class="lzt-shell">
+
+  <header class="lzt-topbar">
+    <div class="lzt-topbar__inner">
+      <a class="lzt-logo" href="#"><span class="lzt-logo__mark">L</span> lzt-ui</a>
+
+      <nav class="lzt-row" style="gap:2px">
+        <a class="lzt-sidenav__item is-active" href="#">Форум</a>
+        <a class="lzt-sidenav__item" href="#">Маркет</a>
+        <a class="lzt-sidenav__item" href="#">Гарант</a>
+      </nav>
+
+      <div class="lzt-spacer"></div>
+
+      <div class="lzt-search" style="width:220px">
+        <span class="lzt-search__icon"><svg width="15" height="15"><use href="#i-search"/></svg></span>
+        <input class="lzt-input lzt-input--sm" placeholder="Поиск по форуму">
+      </div>
+
+      <button class="lzt-btn lzt-btn--ghost lzt-btn--icon lzt-tip" data-tip="Уведомления">
+        <svg width="17" height="17"><use href="#i-bell"/></svg>
+      </button>
+
+      <button class="lzt-btn lzt-btn--ghost lzt-btn--icon lzt-tip" data-tip="Тема" data-lzt-theme-toggle>
+        <svg width="17" height="17"><use href="#i-sun"/></svg>
+      </button>
+
+      <div class="lzt-dropdown">
+        <button class="lzt-btn lzt-btn--ghost" data-lzt-dropdown>
+          <span class="lzt-avatar lzt-avatar--sm">A</span> asmin
+        </button>
+        <div class="lzt-menu">
+          <button class="lzt-menu__item">Профиль</button>
+          <button class="lzt-menu__item">Мои темы</button>
+          <button class="lzt-menu__item">Настройки</button>
+          <div class="lzt-menu__sep"></div>
+          <button class="lzt-menu__item lzt-menu__item--danger">Выйти</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="lzt-container">
+    <div class="lzt-main">
+
+      <aside class="lzt-sidenav">
+        <div class="lzt-sidenav__label">Разделы</div>
+        <a class="lzt-sidenav__item is-active" href="#">Общий<span class="lzt-sidenav__count">1.2k</span></a>
+        <a class="lzt-sidenav__item" href="#">Разработка<span class="lzt-sidenav__count">840</span></a>
+        <a class="lzt-sidenav__item" href="#">Софт<span class="lzt-sidenav__count">512</span></a>
+        <a class="lzt-sidenav__item" href="#">Маркет<span class="lzt-sidenav__count">2.4k</span></a>
+        <a class="lzt-sidenav__item" href="#">Оффтоп<span class="lzt-sidenav__count">97</span></a>
+
+        <div class="lzt-sidenav__label">Личное</div>
+        <a class="lzt-sidenav__item" href="#">Подписки<span class="lzt-sidenav__count">12</span></a>
+        <a class="lzt-sidenav__item" href="#">Закладки<span class="lzt-sidenav__count">5</span></a>
+
+        <hr class="lzt-divider">
+
+        <div class="lzt-stat">
+          <span class="lzt-stat__label">Онлайн сейчас</span>
+          <span class="lzt-stat__value">3 481</span>
+          <span class="lzt-stat__delta lzt-stat__delta--up">+12% за час</span>
+        </div>
+      </aside>
+
+      <main class="lzt-stack">
+
+        <nav class="lzt-breadcrumb">
+          <a href="#">Главная</a><span class="lzt-breadcrumb__sep">/</span>
+          <a href="#">Форум</a><span class="lzt-breadcrumb__sep">/</span>
+          <span>Разработка</span>
+        </nav>
+
+        <div class="lzt-row lzt-row--between lzt-row--wrap">
+          <div>
+            <h2>Разработка</h2>
+            <p class="lzt-muted" style="font-size:13px">Инструменты, автоматизация, открытый код</p>
+          </div>
+          <div class="lzt-row">
+            <div class="lzt-segmented">
+              <button class="lzt-segmented__item" aria-selected="true">Новые</button>
+              <button class="lzt-segmented__item" aria-selected="false">Популярные</button>
+              <button class="lzt-segmented__item" aria-selected="false">Без ответа</button>
+            </div>
+            <button class="lzt-btn lzt-btn--primary" data-lzt-open="new-thread">
+              <svg width="15" height="15"><use href="#i-plus"/></svg> Создать тему
+            </button>
+          </div>
+        </div>
+
+        <div class="lzt-alert lzt-alert--info">
+          <div>
+            <strong class="lzt-alert__title">Правила раздела обновлены</strong>
+            Публикуйте исходники, а не собранные бинарники. Ссылки на закрытые сборки удаляются.
+          </div>
+        </div>
+
+        <div class="lzt-row lzt-row--wrap">
+          <span class="lzt-tag is-active">все</span>
+          <span class="lzt-tag">python</span>
+          <span class="lzt-tag">api</span>
+          <span class="lzt-tag">автоматизация</span>
+          <span class="lzt-tag">open-source</span>
+          <span class="lzt-tag">гайд</span>
+        </div>
+
+        <section class="lzt-block">
+          <div class="lzt-block__header">
+            Темы раздела
+            <span class="lzt-badge lzt-badge--brand">840</span>
+            <span class="lzt-spacer"></span>
+            <span class="lzt-muted" style="font-size:12px;font-weight:400">Сортировка: по активности</span>
+          </div>
+
+          <div class="lzt-stagger">
+
+            <article class="lzt-thread is-pinned is-unread">
+              <span class="lzt-avatar">S</span>
+              <div class="lzt-thread__main">
+                <div class="lzt-thread__title">
+                  <svg width="13" height="13" style="vertical-align:-2px;color:var(--lzt-brand)"><use href="#i-pin"/></svg>
+                  Открытый SDK для маркета — забирайте, форкайте, ломайте
+                </div>
+                <div class="lzt-thread__meta">
+                  <span>sudo</span><span>·</span><span>2 часа назад</span>
+                  <span class="lzt-badge lzt-badge--brand">закреплено</span>
+                  <span class="lzt-badge">python</span>
+                </div>
+              </div>
+              <div class="lzt-thread__stats">
+                <div class="lzt-thread__stat"><b>312</b><span>ответов</span></div>
+                <div class="lzt-thread__stat"><b>18k</b><span>просмотров</span></div>
+              </div>
+            </article>
+
+            <article class="lzt-thread is-unread">
+              <span class="lzt-avatar">M</span>
+              <div class="lzt-thread__main">
+                <div class="lzt-thread__title">Как я перенёс автобамп с монолита на плагины</div>
+                <div class="lzt-thread__meta">
+                  <span>mercury</span><span>·</span><span>5 часов назад</span>
+                  <span class="lzt-badge lzt-badge--warning">обсуждение</span>
+                </div>
+              </div>
+              <div class="lzt-thread__stats">
+                <div class="lzt-thread__stat"><b>84</b><span>ответов</span></div>
+                <div class="lzt-thread__stat"><b>4.1k</b><span>просмотров</span></div>
+              </div>
+            </article>
+
+            <article class="lzt-thread">
+              <span class="lzt-avatar">K</span>
+              <div class="lzt-thread__main">
+                <div class="lzt-thread__title">Мониторинг новых лотов: вебхуки против поллинга</div>
+                <div class="lzt-thread__meta">
+                  <span>kernel</span><span>·</span><span>вчера</span>
+                  <span class="lzt-badge">api</span>
+                </div>
+              </div>
+              <div class="lzt-thread__stats">
+                <div class="lzt-thread__stat"><b>27</b><span>ответов</span></div>
+                <div class="lzt-thread__stat"><b>960</b><span>просмотров</span></div>
+              </div>
+            </article>
+
+            <article class="lzt-thread">
+              <span class="lzt-avatar">V</span>
+              <div class="lzt-thread__main">
+                <div class="lzt-thread__title">
+                  <svg width="13" height="13" style="vertical-align:-2px;color:var(--lzt-text-muted)"><use href="#i-lock"/></svg>
+                  Продам скрипт — читайте правила раздела
+                </div>
+                <div class="lzt-thread__meta">
+                  <span>void</span><span>·</span><span>2 дня назад</span>
+                  <span class="lzt-badge lzt-badge--danger">закрыто</span>
+                </div>
+              </div>
+              <div class="lzt-thread__stats">
+                <div class="lzt-thread__stat"><b>6</b><span>ответов</span></div>
+                <div class="lzt-thread__stat"><b>310</b><span>просмотров</span></div>
+              </div>
+            </article>
+
+            <article class="lzt-thread">
+              <span class="lzt-avatar">N</span>
+              <div class="lzt-thread__main">
+                <div class="lzt-thread__title">Тестовый стенд, который ломает твой софт специально</div>
+                <div class="lzt-thread__meta">
+                  <span>nyx</span><span>·</span><span>3 дня назад</span>
+                  <span class="lzt-badge lzt-badge--info">гайд</span>
+                </div>
+              </div>
+              <div class="lzt-thread__stats">
+                <div class="lzt-thread__stat"><b>131</b><span>ответов</span></div>
+                <div class="lzt-thread__stat"><b>7.7k</b><span>просмотров</span></div>
+              </div>
+            </article>
+
+          </div>
+
+          <div class="lzt-block__footer lzt-row lzt-row--between">
+            <span class="lzt-muted" style="font-size:12px">Показано 5 из 840</span>
+            <nav class="lzt-pagenav">
+              <button class="lzt-pagenav__item is-current">1</button>
+              <button class="lzt-pagenav__item">2</button>
+              <button class="lzt-pagenav__item">3</button>
+              <span class="lzt-pagenav__gap">…</span>
+              <button class="lzt-pagenav__item">168</button>
+            </nav>
+          </div>
+        </section>
+
+        <section class="lzt-grid">
+          <div class="lzt-card lzt-card--hover">
+            <div class="lzt-stat__label">Сообщений сегодня</div>
+            <div class="lzt-stat__value">12 904</div>
+            <div class="lzt-progress" style="margin-top:10px"><div class="lzt-progress__bar" style="width:72%"></div></div>
+          </div>
+          <div class="lzt-card lzt-card--hover">
+            <div class="lzt-stat__label">Новых тем</div>
+            <div class="lzt-stat__value">348</div>
+            <div class="lzt-progress" style="margin-top:10px"><div class="lzt-progress__bar" style="width:41%"></div></div>
+          </div>
+          <div class="lzt-card lzt-card--hover">
+            <div class="lzt-stat__label">Индексация</div>
+            <div class="lzt-stat__value lzt-gradient-text">в работе</div>
+            <div class="lzt-progress lzt-progress--flow" style="margin-top:10px"><div class="lzt-progress__bar" style="width:100%"></div></div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+</div>
+
+<div class="lzt-overlay" id="new-thread">
+  <div class="lzt-modal">
+    <div class="lzt-modal__head">Новая тема <span class="lzt-spacer"></span>
+      <button class="lzt-btn lzt-btn--ghost lzt-btn--sm lzt-btn--icon" data-lzt-close>✕</button>
+    </div>
+    <div class="lzt-modal__body lzt-stack">
+      <div class="lzt-field">
+        <label class="lzt-label" for="nt-title">Заголовок</label>
+        <input class="lzt-input" id="nt-title" placeholder="О чём тема?">
+      </div>
+      <div class="lzt-field">
+        <label class="lzt-label" for="nt-cat">Раздел</label>
+        <select class="lzt-select" id="nt-cat">
+          <option>Разработка</option>
+          <option>Софт</option>
+          <option>Оффтоп</option>
+        </select>
+      </div>
+      <div class="lzt-field">
+        <label class="lzt-label" for="nt-body">Сообщение</label>
+        <textarea class="lzt-textarea" id="nt-body" placeholder="Поддерживается разметка"></textarea>
+      </div>
+      <label class="lzt-check"><input type="checkbox" checked> Подписаться на ответы</label>
+    </div>
+    <div class="lzt-modal__foot">
+      <button class="lzt-btn" data-lzt-close>Отмена</button>
+      <button class="lzt-btn lzt-btn--primary" data-lzt-close data-lzt-toast="Тема опубликована">Опубликовать</button>
+    </div>
+  </div>
+</div>
+
+<script src="../lzt-ui.js"></script>
+</body>
+</html>
