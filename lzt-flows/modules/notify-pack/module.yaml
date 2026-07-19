@@ -1,6 +1,0 @@
-schema_version: 1
-name: notify-pack
-version: 1.0.0
-author: zlexdev
-kind: python
-description: Узлы уведомлений — Discord и произвольный вебхук. Ставится на хост через pip.

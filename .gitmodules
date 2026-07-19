@@ -22,3 +22,6 @@
 	path = projects/mcp
 	url = https://github.com/open-lzt/lzt-mcp.git
 	branch = main
+[submodule "lzt-flows"]
+	path = lzt-flows
+	url = https://github.com/open-lzt/lzt-flows.git
