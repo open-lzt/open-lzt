@@ -1,5 +1,8 @@
-"""Sanity check: CSS parses balanced, every lzt-* class used in the demos is defined,
-every var() reference resolves, and every <use href="#id"> has a matching <symbol>.
+"""Sanity check for the CSS layer and the plain-HTML demos.
+
+Verifies: CSS blocks balance, every lzt-* class used in markup is defined,
+every var() resolves, every <use href="#i-*"> exists in the icon sprite,
+modal targets resolve, and no off-scale spacing is hand-rolled in markup.
 
 Run:  python check.py
 """
@@ -11,6 +14,7 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 CSS = (HERE / "lzt-ui.css").read_text(encoding="utf-8")
+ICONS_JS = (HERE / "lzt-icons.js").read_text(encoding="utf-8")
 DEMOS = sorted((HERE / "demo").glob("*.html"))
 
 failures: list[str] = []
@@ -48,14 +52,16 @@ unresolved = sorted(referenced - declared)
 if unresolved:
     failures.append(f"CSS: var() references with no declaration -> {unresolved}")
 
-# 4. svg sprite references resolve within each demo
+# 4. icon references resolve against the sprite
+sprite = set(re.findall(r"^\s*'([a-z0-9-]+)':", ICONS_JS, re.M))
+if not sprite:
+    failures.append("lzt-icons.js: no icons parsed — the sprite table shape changed")
 for demo in DEMOS:
     html = demo.read_text(encoding="utf-8")
-    symbols = set(re.findall(r'<symbol id="([^"]+)"', html))
-    uses = set(re.findall(r'<use href="#([^"]+)"', html))
-    missing_icons = sorted(uses - symbols)
+    used_icons = set(re.findall(r'<use href="#i-([a-z0-9-]+)"', html))
+    missing_icons = sorted(used_icons - sprite)
     if missing_icons:
-        failures.append(f"{demo.name}: <use> without <symbol> -> {missing_icons}")
+        failures.append(f"{demo.name}: icons not in the sprite -> {missing_icons}")
 
 # 5. data-lzt-open targets an element that exists
 for demo in DEMOS:
@@ -65,10 +71,21 @@ for demo in DEMOS:
         if target not in ids:
             failures.append(f"{demo.name}: data-lzt-open='{target}' has no matching element")
 
+# 6. no hand-rolled spacing in markup — the scale exists so nothing improvises.
+#    `width:` on progress bars and swatch backgrounds are data, not spacing.
+SPACING_PROP = re.compile(r'style="[^"]*\b(gap|margin|padding)\s*:', re.I)
+for demo in DEMOS:
+    for num, line in enumerate(demo.read_text(encoding="utf-8").splitlines(), 1):
+        if SPACING_PROP.search(line):
+            failures.append(f"{demo.name}:{num}: inline spacing — use the scale utilities")
+
 if failures:
     print("FAIL")
     for f in failures:
         print("  -", f)
     sys.exit(1)
 
-print(f"OK — {len(defined)} classes defined, {len(declared)} tokens, {len(DEMOS)} demos checked")
+print(
+    f"OK — {len(defined)} classes, {len(declared)} tokens, "
+    f"{len(sprite)} icons, {len(DEMOS)} demos"
+)

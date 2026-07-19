@@ -4,9 +4,19 @@
   'use strict';
 
   var THEME_KEY = 'lzt-theme';
+  var TOAST_LIFE = 3000;
+  var COLLAPSE_MS = 180;
 
   function closest(el, sel) {
     return el && el.closest ? el.closest(sel) : null;
+  }
+
+  /* Re-triggers a CSS animation on an element that may already carry the class.
+     Reading offsetWidth forces a style flush between remove and add. */
+  function replay(el, cls) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
   }
 
   /* theme ------------------------------------------------------------- */
@@ -48,11 +58,17 @@
     host.appendChild(el);
 
     setTimeout(function () {
+      /* pin the current height first — max-height can't animate from `auto` */
+      el.style.maxHeight = el.offsetHeight + 'px';
       el.classList.add('is-leaving');
       el.addEventListener('animationend', function () {
-        el.remove();
+        el.classList.add('is-collapsing');
+        setTimeout(function () {
+          el.remove();
+        }, COLLAPSE_MS);
       });
-    }, ms || 3000);
+    }, ms || TOAST_LIFE);
+
     return el;
   }
 
@@ -70,8 +86,7 @@
   document.addEventListener('click', function (e) {
     var t = e.target;
 
-    var themeBtn = closest(t, '[data-lzt-theme-toggle]');
-    if (themeBtn) {
+    if (closest(t, '[data-lzt-theme-toggle]')) {
       toggleTheme();
       return;
     }
@@ -88,7 +103,7 @@
         var panels = document.querySelectorAll('[data-lzt-panel-group="' + group + '"]');
         for (var j = 0; j < panels.length; j++) {
           panels[j].hidden = panels[j].id !== panelId;
-          if (!panels[j].hidden) panels[j].classList.add('lzt-enter');
+          if (!panels[j].hidden) replay(panels[j], 'lzt-enter');
         }
       }
       return;
@@ -115,6 +130,10 @@
       var countEl = reaction.querySelector('[data-count]');
       if (countEl) {
         countEl.textContent = String(Number(countEl.textContent) + (mine ? 1 : -1));
+        replay(reaction, 'is-ticking');
+        setTimeout(function () {
+          reaction.classList.remove('is-ticking');
+        }, 120);
       }
       return;
     }

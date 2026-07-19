@@ -6,24 +6,25 @@
 <title>lzt-ui — компоненты</title>
 <link rel="stylesheet" href="../lzt-ui.css">
 <style>
-  .sink { max-width: 980px; margin: 0 auto; padding: 32px 16px 80px; }
-  .sink section { margin-top: 40px; }
-  .sink h3 { margin-bottom: 14px; }
-  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
-  .sw { border-radius: 10px; overflow: hidden; box-shadow: var(--lzt-ring); }
+  .sink { max-width: 980px; margin: 0 auto; padding: var(--lzt-s8) var(--lzt-s4) 80px; }
+  .sink section { margin-top: var(--lzt-s10); }
+  .sink h3 { margin-bottom: var(--lzt-s4); }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: var(--lzt-s3); }
+  .sw { border-radius: var(--lzt-r-md); overflow: hidden; box-shadow: var(--lzt-ring); }
   .sw__chip { height: 52px; }
-  .sw__meta { padding: 8px 10px; font-size: 11px; background: var(--lzt-surface); }
+  .sw__meta { padding: var(--lzt-s2) var(--lzt-s3); font-size: var(--lzt-fs-xs); background: var(--lzt-surface); }
   .sw__meta b { display: block; color: var(--lzt-text); }
+  .icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--lzt-s2); }
+  .icons figure {
+    margin: 0; display: flex; flex-direction: column; align-items: center; gap: var(--lzt-s2);
+    padding: var(--lzt-s3) var(--lzt-s2); border-radius: var(--lzt-r-md); color: var(--lzt-text-soft);
+    box-shadow: var(--lzt-ring); transition: background var(--lzt-fast) var(--lzt-ease), color var(--lzt-fast) var(--lzt-ease);
+  }
+  .icons figure:hover { background: var(--lzt-raised); color: var(--lzt-brand); }
+  .icons figcaption { font-size: 11px; color: var(--lzt-text-muted); }
 </style>
 </head>
 <body>
-
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
-  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
-  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
-  <symbol id="i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h5l2 3h4l2-3h5"/><path d="M5 5h14l2 7v7H3v-7z"/></symbol>
-</svg>
 
 <header class="lzt-topbar">
   <div class="lzt-topbar__inner">
@@ -31,52 +32,61 @@
     <div class="lzt-spacer"></div>
     <a class="lzt-btn lzt-btn--ghost lzt-btn--sm" href="forum.html">Форум</a>
     <a class="lzt-btn lzt-btn--ghost lzt-btn--sm" href="thread.html">Тема</a>
-    <button class="lzt-btn lzt-btn--ghost lzt-btn--icon" data-lzt-theme-toggle>
-      <svg width="17" height="17"><use href="#i-sun"/></svg>
+    <button class="lzt-btn lzt-btn--ghost lzt-btn--icon" data-lzt-theme-toggle aria-label="Сменить тему">
+      <svg class="lzt-icon"><use href="#i-sun"/></svg>
     </button>
   </div>
 </header>
 
 <div class="sink">
 
-  <h1 class="lzt-gradient-text" style="display:inline-block">lzt-ui</h1>
-  <p class="lzt-muted">Заготовки в визуальном языке LZT. Чистый CSS, без сборки и зависимостей.</p>
+  <div class="lzt-page-head">
+    <div>
+      <h1>lzt-ui</h1>
+      <p class="lzt-page-head__sub">Заготовки в визуальном языке LZT. Чистый CSS, без сборки и зависимостей.</p>
+    </div>
+  </div>
 
   <section>
     <h3>Поверхности</h3>
     <div class="swatches">
-      <div class="sw"><div class="sw__chip" style="background:var(--lzt-bg)"></div><div class="sw__meta"><b>--lzt-bg</b>#141414</div></div>
-      <div class="sw"><div class="sw__chip" style="background:var(--lzt-surface)"></div><div class="sw__meta"><b>--lzt-surface</b>#1c1c1c</div></div>
-      <div class="sw"><div class="sw__chip" style="background:var(--lzt-raised)"></div><div class="sw__meta"><b>--lzt-raised</b>#242424</div></div>
-      <div class="sw"><div class="sw__chip" style="background:var(--lzt-overlay)"></div><div class="sw__meta"><b>--lzt-overlay</b>#303030</div></div>
-      <div class="sw"><div class="sw__chip" style="background:var(--lzt-elevated)"></div><div class="sw__meta"><b>--lzt-elevated</b>#363636</div></div>
-      <div class="sw"><div class="sw__chip" style="background:var(--lzt-brand)"></div><div class="sw__meta"><b>--lzt-brand</b>#00ba78</div></div>
-      <div class="sw"><div class="sw__chip" style="background:var(--lzt-danger)"></div><div class="sw__meta"><b>--lzt-danger</b>#ea4c4c</div></div>
-      <div class="sw"><div class="sw__chip" style="background:var(--lzt-warning)"></div><div class="sw__meta"><b>--lzt-warning</b>#e68c17</div></div>
-      <div class="sw"><div class="sw__chip" style="background:var(--lzt-info)"></div><div class="sw__meta"><b>--lzt-info</b>#2394bc</div></div>
+      <div class="sw"><div class="sw__chip" style="background:var(--lzt-bg)"></div><div class="sw__meta"><b>bg</b>#0f0f10</div></div>
+      <div class="sw"><div class="sw__chip" style="background:var(--lzt-surface)"></div><div class="sw__meta"><b>surface</b>#17181a</div></div>
+      <div class="sw"><div class="sw__chip" style="background:var(--lzt-raised)"></div><div class="sw__meta"><b>raised</b>#1f2023</div></div>
+      <div class="sw"><div class="sw__chip" style="background:var(--lzt-overlay)"></div><div class="sw__meta"><b>overlay</b>#2a2b2f</div></div>
+      <div class="sw"><div class="sw__chip" style="background:var(--lzt-elevated)"></div><div class="sw__meta"><b>elevated</b>#35373c</div></div>
+      <div class="sw"><div class="sw__chip" style="background:var(--lzt-brand)"></div><div class="sw__meta"><b>brand</b>#00ba78</div></div>
+      <div class="sw"><div class="sw__chip" style="background:var(--lzt-danger)"></div><div class="sw__meta"><b>danger</b>#ea4c4c</div></div>
+      <div class="sw"><div class="sw__chip" style="background:var(--lzt-warning)"></div><div class="sw__meta"><b>warning</b>#e68c17</div></div>
+      <div class="sw"><div class="sw__chip" style="background:var(--lzt-info)"></div><div class="sw__meta"><b>info</b>#2394bc</div></div>
       <div class="sw"><div class="sw__chip" style="background:var(--lzt-grad-brand)"></div><div class="sw__meta"><b>grad-brand</b>88deg</div></div>
-      <div class="sw"><div class="sw__chip" style="background:var(--lzt-grad-flow);background-size:400% 400%;animation:lzt-grad-move 6s ease infinite"></div><div class="sw__meta"><b>grad-flow</b>анимированный</div></div>
-      <div class="sw"><div class="sw__chip" style="background:var(--lzt-grad-premium)"></div><div class="sw__meta"><b>grad-premium</b>98deg</div></div>
+      <div class="sw"><div class="sw__chip lzt-progress--flow" style="background:var(--lzt-grad-flow);background-size:400% 400%;animation:lzt-grad-move 6s ease infinite"></div><div class="sw__meta"><b>grad-flow</b>анимированный</div></div>
     </div>
   </section>
 
   <section>
+    <h3>Иконки</h3>
+    <p class="lzt-muted lzt-small">Один сет: сетка 24, обводка 2px, currentColor. Подключается через <code>lzt-icons.js</code>.</p>
+    <div class="icons lzt-mt4" id="icon-gallery"></div>
+  </section>
+
+  <section>
     <h3>Кнопки</h3>
-    <div class="lzt-row lzt-row--wrap" style="gap:10px">
-      <button class="lzt-btn lzt-btn--primary">Основная</button>
+    <div class="lzt-row lzt-row--wrap lzt-g3">
+      <button class="lzt-btn lzt-btn--primary"><svg class="lzt-icon"><use href="#i-check"/></svg> Основная</button>
       <button class="lzt-btn">Обычная</button>
       <button class="lzt-btn lzt-btn--outline">Контурная</button>
       <button class="lzt-btn lzt-btn--ghost">Призрачная</button>
-      <button class="lzt-btn lzt-btn--danger">Опасная</button>
+      <button class="lzt-btn lzt-btn--danger"><svg class="lzt-icon"><use href="#i-trash"/></svg> Опасная</button>
       <button class="lzt-btn lzt-btn--gradient">Градиент</button>
       <button class="lzt-btn is-loading lzt-btn--primary">Грузится</button>
       <button class="lzt-btn" disabled>Выключена</button>
     </div>
-    <div class="lzt-row lzt-row--wrap" style="gap:10px;margin-top:12px">
+    <div class="lzt-row lzt-row--wrap lzt-g3 lzt-mt3">
       <button class="lzt-btn lzt-btn--sm">Мелкая</button>
       <button class="lzt-btn">Средняя</button>
       <button class="lzt-btn lzt-btn--lg">Крупная</button>
-      <button class="lzt-btn lzt-btn--icon"><svg width="15" height="15"><use href="#i-search"/></svg></button>
+      <button class="lzt-btn lzt-btn--icon" aria-label="Поиск"><svg class="lzt-icon"><use href="#i-search"/></svg></button>
       <div class="lzt-btn-group">
         <button class="lzt-btn lzt-btn--sm">День</button>
         <button class="lzt-btn lzt-btn--sm">Неделя</button>
@@ -106,14 +116,18 @@
         <select class="lzt-select" id="k3"><option>Первый</option><option>Второй</option></select>
       </div>
       <div class="lzt-field">
-        <label class="lzt-label">Поиск</label>
+        <label class="lzt-label" for="k4">Поиск</label>
         <div class="lzt-search">
-          <span class="lzt-search__icon"><svg width="15" height="15"><use href="#i-search"/></svg></span>
-          <input class="lzt-input" placeholder="Найти">
+          <span class="lzt-search__icon"><svg class="lzt-icon lzt-icon--sm"><use href="#i-search"/></svg></span>
+          <input class="lzt-input" id="k4" placeholder="Найти">
         </div>
       </div>
+      <div class="lzt-field">
+        <label class="lzt-label" for="k5">Выключено</label>
+        <input class="lzt-input" id="k5" value="недоступно" disabled>
+      </div>
     </div>
-    <div class="lzt-row lzt-row--wrap" style="gap:20px;margin-top:16px">
+    <div class="lzt-row lzt-row--wrap lzt-g5 lzt-mt4">
       <label class="lzt-check"><input type="checkbox" checked> Чекбокс</label>
       <label class="lzt-check"><input type="radio" name="r" checked> Радио A</label>
       <label class="lzt-check"><input type="radio" name="r"> Радио B</label>
@@ -123,7 +137,7 @@
 
   <section>
     <h3>Бейджи, теги, аватары</h3>
-    <div class="lzt-row lzt-row--wrap" style="gap:8px">
+    <div class="lzt-row lzt-row--wrap lzt-g2">
       <span class="lzt-badge">обычный</span>
       <span class="lzt-badge lzt-badge--brand">бренд</span>
       <span class="lzt-badge lzt-badge--danger">опасно</span>
@@ -132,13 +146,13 @@
       <span class="lzt-badge lzt-badge--premium">premium</span>
       <span class="lzt-badge lzt-badge--pill">таблетка</span>
     </div>
-    <div class="lzt-row lzt-row--wrap" style="gap:8px;margin-top:12px">
+    <div class="lzt-row lzt-row--wrap lzt-g2 lzt-mt3">
       <span class="lzt-tag is-active">активный</span>
       <span class="lzt-tag">python</span>
       <span class="lzt-tag">api</span>
-      <span class="lzt-chip">фильтр<span class="lzt-chip__x">✕</span></span>
+      <span class="lzt-chip">фильтр<span class="lzt-chip__x"><svg class="lzt-icon lzt-icon--sm"><use href="#i-x"/></svg></span></span>
     </div>
-    <div class="lzt-row" style="gap:12px;margin-top:14px">
+    <div class="lzt-row lzt-g3 lzt-mt4">
       <span class="lzt-avatar lzt-avatar--sm">S</span>
       <span class="lzt-avatar">M</span>
       <span class="lzt-avatar lzt-avatar--lg lzt-avatar--ring">K<span class="lzt-avatar__dot lzt-avatar__dot--online"></span></span>
@@ -149,10 +163,22 @@
   <section>
     <h3>Сообщения</h3>
     <div class="lzt-stack">
-      <div class="lzt-alert"><div><strong class="lzt-alert__title">Обычное</strong>Нейтральное уведомление.</div></div>
-      <div class="lzt-alert lzt-alert--success"><div><strong class="lzt-alert__title">Успех</strong>Задача выполнена.</div></div>
-      <div class="lzt-alert lzt-alert--warning"><div><strong class="lzt-alert__title">Внимание</strong>Приближается лимит запросов.</div></div>
-      <div class="lzt-alert lzt-alert--danger"><div><strong class="lzt-alert__title">Ошибка</strong>Не удалось подключиться.</div></div>
+      <div class="lzt-alert">
+        <span class="lzt-alert__icon"><svg class="lzt-icon"><use href="#i-info"/></svg></span>
+        <div><strong class="lzt-alert__title">Обычное</strong>Нейтральное уведомление.</div>
+      </div>
+      <div class="lzt-alert lzt-alert--success">
+        <span class="lzt-alert__icon"><svg class="lzt-icon"><use href="#i-check"/></svg></span>
+        <div><strong class="lzt-alert__title">Успех</strong>Задача выполнена.</div>
+      </div>
+      <div class="lzt-alert lzt-alert--warning">
+        <span class="lzt-alert__icon"><svg class="lzt-icon"><use href="#i-alert"/></svg></span>
+        <div><strong class="lzt-alert__title">Внимание</strong>Приближается лимит запросов.</div>
+      </div>
+      <div class="lzt-alert lzt-alert--danger">
+        <span class="lzt-alert__icon"><svg class="lzt-icon"><use href="#i-x"/></svg></span>
+        <div><strong class="lzt-alert__title">Ошибка</strong>Не удалось подключиться.</div>
+      </div>
     </div>
   </section>
 
@@ -165,7 +191,7 @@
       </div>
 
       <div class="lzt-block">
-        <div class="lzt-block__header">Задачи <span class="lzt-badge lzt-badge--brand">3</span></div>
+        <div class="lzt-block__header">Задачи <span class="lzt-badge">3</span></div>
         <div class="lzt-table-wrap">
           <table class="lzt-table lzt-table--num">
             <thead><tr><th>Задача</th><th>Статус</th><th>Интервал</th><th>Осталось</th></tr></thead>
@@ -183,19 +209,20 @@
   <section>
     <h3>Загрузка</h3>
     <div class="lzt-grid">
-      <div class="lzt-card lzt-stack">
-        <div class="lzt-row" style="gap:16px">
+      <div class="lzt-card lzt-stack lzt-g4">
+        <div class="lzt-row lzt-g4">
           <div class="lzt-spinner"></div>
           <div class="lzt-spinner lzt-spinner--lg"></div>
           <div class="lzt-dots"><span></span><span></span><span></span></div>
         </div>
         <div class="lzt-progress"><div class="lzt-progress__bar" style="width:64%"></div></div>
+        <div class="lzt-progress lzt-progress--brand"><div class="lzt-progress__bar" style="width:38%"></div></div>
         <div class="lzt-progress lzt-progress--flow"><div class="lzt-progress__bar" style="width:100%"></div></div>
       </div>
       <div class="lzt-card">
-        <div class="lzt-row" style="gap:12px;align-items:flex-start">
+        <div class="lzt-row lzt-row--top lzt-g3">
           <div class="lzt-skeleton lzt-skeleton--avatar"></div>
-          <div style="flex:1">
+          <div class="lzt-spacer">
             <div class="lzt-skeleton lzt-skeleton--title"></div>
             <div class="lzt-skeleton lzt-skeleton--text"></div>
             <div class="lzt-skeleton lzt-skeleton--text" style="width:70%"></div>
@@ -204,10 +231,12 @@
       </div>
       <div class="lzt-card">
         <div class="lzt-empty">
-          <div class="lzt-empty__icon"><svg width="22" height="22"><use href="#i-inbox"/></svg></div>
-          <div class="lzt-empty__title">Пусто</div>
-          <div style="font-size:13px">Здесь появятся ваши темы</div>
-          <button class="lzt-btn lzt-btn--primary lzt-btn--sm">Создать</button>
+          <div class="lzt-empty__icon"><svg class="lzt-icon lzt-icon--lg"><use href="#i-inbox"/></svg></div>
+          <div>
+            <div class="lzt-empty__title">Пусто</div>
+            <div class="lzt-empty__text">Здесь появятся ваши темы</div>
+          </div>
+          <button class="lzt-btn lzt-btn--primary lzt-btn--sm"><svg class="lzt-icon lzt-icon--sm"><use href="#i-plus"/></svg> Создать</button>
         </div>
       </div>
     </div>
@@ -215,18 +244,20 @@
 
   <section>
     <h3>Оверлеи</h3>
-    <div class="lzt-row lzt-row--wrap" style="gap:10px">
+    <div class="lzt-row lzt-row--wrap lzt-g3">
       <button class="lzt-btn lzt-btn--primary" data-lzt-open="demo-modal">Открыть окно</button>
       <button class="lzt-btn" data-lzt-toast="Сохранено">Тост</button>
       <button class="lzt-btn" data-lzt-toast="Не удалось сохранить" data-lzt-toast-variant="danger">Тост-ошибка</button>
       <span class="lzt-btn lzt-tip" data-tip="Подсказка сверху">Наведи</span>
       <div class="lzt-dropdown">
-        <button class="lzt-btn" data-lzt-dropdown>Меню</button>
+        <button class="lzt-btn" data-lzt-dropdown>
+          Меню <svg class="lzt-icon lzt-icon--sm"><use href="#i-chevron-down"/></svg>
+        </button>
         <div class="lzt-menu">
-          <button class="lzt-menu__item">Открыть</button>
-          <button class="lzt-menu__item">Копировать</button>
+          <button class="lzt-menu__item"><svg class="lzt-icon"><use href="#i-external"/></svg> Открыть</button>
+          <button class="lzt-menu__item"><svg class="lzt-icon"><use href="#i-copy"/></svg> Копировать</button>
           <div class="lzt-menu__sep"></div>
-          <button class="lzt-menu__item lzt-menu__item--danger">Удалить</button>
+          <button class="lzt-menu__item lzt-menu__item--danger"><svg class="lzt-icon"><use href="#i-trash"/></svg> Удалить</button>
         </div>
       </div>
     </div>
@@ -241,10 +272,15 @@
       </blockquote>
       <div class="lzt-code">await client.market.buy(item_id, price=Decimal("499.00"))</div>
       <div class="lzt-spoiler">
-        <button class="lzt-spoiler__btn">Спойлер <span class="lzt-spoiler__chevron">▾</span></button>
-        <div class="lzt-spoiler__content">Содержимое раскрывается по клику.</div>
+        <button class="lzt-spoiler__btn">
+          Спойлер
+          <span class="lzt-spoiler__chevron"><svg class="lzt-icon lzt-icon--sm"><use href="#i-chevron-down"/></svg></span>
+        </button>
+        <div class="lzt-spoiler__content">
+          <div class="lzt-spoiler__inner">Содержимое раскрывается по клику — высота анимируется, а не прыгает.</div>
+        </div>
       </div>
-      <div class="lzt-reactions" style="margin-top:12px">
+      <div class="lzt-reactions lzt-mt3">
         <span class="lzt-reaction is-mine">Нравится <b data-count>12</b></span>
         <span class="lzt-reaction">Полезно <b data-count>4</b></span>
       </div>
@@ -254,10 +290,10 @@
 </div>
 
 <div class="lzt-overlay" id="demo-modal">
-  <div class="lzt-modal">
+  <div class="lzt-modal" role="dialog" aria-modal="true" aria-label="Подтверждение">
     <div class="lzt-modal__head">Подтверждение <span class="lzt-spacer"></span>
-      <button class="lzt-btn lzt-btn--ghost lzt-btn--sm lzt-btn--icon" data-lzt-close>
-        <svg width="14" height="14"><use href="#i-x"/></svg>
+      <button class="lzt-btn lzt-btn--ghost lzt-btn--sm lzt-btn--icon" data-lzt-close aria-label="Закрыть">
+        <svg class="lzt-icon lzt-icon--sm"><use href="#i-x"/></svg>
       </button>
     </div>
     <div class="lzt-modal__body">Удалить задачу? Действие необратимо.</div>
@@ -268,6 +304,20 @@
   </div>
 </div>
 
+<script src="../lzt-icons.js"></script>
 <script src="../lzt-ui.js"></script>
+<script>
+  /* the gallery renders itself from the sprite, so it can never drift out of sync */
+  (function () {
+    var host = document.getElementById('icon-gallery');
+    (window.lztIcons || []).forEach(function (name) {
+      var fig = document.createElement('figure');
+      fig.innerHTML =
+        '<svg class="lzt-icon lzt-icon--lg"><use href="#i-' + name + '"/></svg>' +
+        '<figcaption>' + name + '</figcaption>';
+      host.appendChild(fig);
+    });
+  })();
+</script>
 </body>
 </html>

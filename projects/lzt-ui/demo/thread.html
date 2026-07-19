@@ -8,22 +8,17 @@
 </head>
 <body>
 
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
-  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
-  <symbol id="i-quote" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h4v6H5V9a2 2 0 012-2zM15 7h4v6h-6V9a2 2 0 012-2z"/></symbol>
-  <symbol id="i-reply" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 016 6v5"/></symbol>
-  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
-</svg>
-
 <div class="lzt-shell">
 
   <header class="lzt-topbar">
     <div class="lzt-topbar__inner">
-      <a class="lzt-logo" href="forum.html"><span class="lzt-logo__mark">L</span> lzt-ui</a>
+      <a class="lzt-logo" href="index.html"><span class="lzt-logo__mark">L</span> lzt-ui</a>
       <div class="lzt-spacer"></div>
-      <button class="lzt-btn lzt-btn--ghost lzt-btn--icon lzt-tip" data-tip="Тема" data-lzt-theme-toggle>
-        <svg width="17" height="17"><use href="#i-sun"/></svg>
+      <a class="lzt-btn lzt-btn--ghost lzt-btn--sm" href="forum.html">
+        <svg class="lzt-icon lzt-icon--sm"><use href="#i-arrow-left"/></svg> К списку тем
+      </a>
+      <button class="lzt-btn lzt-btn--ghost lzt-btn--icon lzt-tip" data-tip="Тема" aria-label="Сменить тему" data-lzt-theme-toggle>
+        <svg class="lzt-icon"><use href="#i-sun"/></svg>
       </button>
       <span class="lzt-avatar lzt-avatar--sm lzt-avatar--round">A</span>
     </div>
@@ -34,25 +29,26 @@
 
       <aside class="lzt-sidenav">
         <div class="lzt-sidenav__label">В этой теме</div>
-        <div class="lzt-card lzt-stack" style="gap:10px">
+        <div class="lzt-card lzt-stack lzt-g3">
           <div class="lzt-row lzt-row--between">
-            <span class="lzt-muted" style="font-size:12px">Участников</span>
+            <span class="lzt-muted lzt-small">Участников</span>
             <b class="lzt-nums">48</b>
           </div>
           <div class="lzt-row lzt-row--between">
-            <span class="lzt-muted" style="font-size:12px">Сообщений</span>
+            <span class="lzt-muted lzt-small">Сообщений</span>
             <b class="lzt-nums">312</b>
           </div>
           <div class="lzt-row lzt-row--between">
-            <span class="lzt-muted" style="font-size:12px">Просмотров</span>
+            <span class="lzt-muted lzt-small">Просмотров</span>
             <b class="lzt-nums">18 402</b>
           </div>
-          <hr class="lzt-divider" style="margin:4px 0">
-          <button class="lzt-btn lzt-btn--outline lzt-btn--block lzt-btn--sm">Подписаться</button>
+          <button class="lzt-btn lzt-btn--outline lzt-btn--block lzt-btn--sm">
+            <svg class="lzt-icon lzt-icon--sm"><use href="#i-bell"/></svg> Подписаться
+          </button>
         </div>
 
         <div class="lzt-sidenav__label">Активные</div>
-        <div class="lzt-row lzt-row--wrap" style="padding:0 12px;gap:6px">
+        <div class="lzt-row lzt-row--wrap lzt-g2">
           <span class="lzt-avatar lzt-avatar--sm lzt-avatar--round">S</span>
           <span class="lzt-avatar lzt-avatar--sm lzt-avatar--round">M</span>
           <span class="lzt-avatar lzt-avatar--sm lzt-avatar--round">K</span>
@@ -61,21 +57,27 @@
         </div>
       </aside>
 
-      <main class="lzt-stack">
-
-        <nav class="lzt-breadcrumb">
-          <a href="forum.html">Форум</a><span class="lzt-breadcrumb__sep">/</span>
-          <a href="forum.html">Разработка</a><span class="lzt-breadcrumb__sep">/</span>
-          <span>Открытый SDK для маркета</span>
-        </nav>
+      <main class="lzt-stack lzt-stack--lg">
 
         <div>
-          <h2>Открытый SDK для маркета — забирайте, форкайте, ломайте</h2>
-          <div class="lzt-thread__meta" style="margin-top:6px">
-            <span class="lzt-badge lzt-badge--brand">закреплено</span>
-            <span class="lzt-badge">python</span>
-            <span class="lzt-badge">open-source</span>
-            <span>·</span><span>начата 12 июля</span>
+          <nav class="lzt-breadcrumb">
+            <a href="forum.html">Форум</a>
+            <span class="lzt-breadcrumb__sep"><svg class="lzt-icon lzt-icon--sm"><use href="#i-chevron-right"/></svg></span>
+            <a href="forum.html">Разработка</a>
+          </nav>
+
+          <div class="lzt-page-head lzt-mt3">
+            <div>
+              <h2>Открытый SDK для маркета</h2>
+              <div class="lzt-thread__meta lzt-mt2">
+                <span class="lzt-badge">python</span>
+                <span class="lzt-badge">open-source</span>
+                <span>·</span><span>начата 12 июля</span>
+              </div>
+            </div>
+            <button class="lzt-btn lzt-btn--primary">
+              <svg class="lzt-icon"><use href="#i-reply"/></svg> Ответить
+            </button>
           </div>
         </div>
 
@@ -98,6 +100,7 @@
 
             <div class="lzt-post__body">
               <div class="lzt-post__head">
+                <svg class="lzt-icon lzt-icon--sm"><use href="#i-clock"/></svg>
                 <span>12 июля в 14:20</span>
                 <span class="lzt-spacer"></span>
                 <span class="lzt-muted">#1</span>
@@ -105,7 +108,7 @@
 
               <div class="lzt-post__content">
                 <p>Выкладываю клиент, который мы пилили полгода. Типизированный, асинхронный,
-                  с нормальными ошибками вместо <code>except Exception: pass</code>.</p>
+                  с нормальными ошибками вместо тихого проглатывания исключений.</p>
 
                 <p>Главное отличие от закрытых сборок — можно прочитать, что он делает с твоим токеном.</p>
 
@@ -121,14 +124,14 @@ async with Client(token) as c:
                 <div class="lzt-spoiler">
                   <button class="lzt-spoiler__btn">
                     Полный список эндпоинтов
-                    <span class="lzt-spoiler__chevron">▾</span>
+                    <span class="lzt-spoiler__chevron"><svg class="lzt-icon lzt-icon--sm"><use href="#i-chevron-down"/></svg></span>
                   </button>
                   <div class="lzt-spoiler__content">
-                    <ul class="lzt-muted" style="margin:0;padding-left:18px;line-height:1.9">
-                      <li>market.search / market.buy / market.check</li>
-                      <li>profile.me / profile.balance</li>
-                      <li>threads.bump / threads.create</li>
-                    </ul>
+                    <div class="lzt-spoiler__inner lzt-muted lzt-small">
+                      market.search · market.buy · market.check<br>
+                      profile.me · profile.balance<br>
+                      threads.bump · threads.create
+                    </div>
                   </div>
                 </div>
               </div>
@@ -141,10 +144,10 @@ async with Client(token) as c:
                 </div>
                 <span class="lzt-spacer"></span>
                 <button class="lzt-btn lzt-btn--ghost lzt-btn--sm">
-                  <svg width="14" height="14"><use href="#i-quote"/></svg> Цитата
+                  <svg class="lzt-icon lzt-icon--sm"><use href="#i-quote"/></svg> Цитата
                 </button>
                 <button class="lzt-btn lzt-btn--ghost lzt-btn--sm">
-                  <svg width="14" height="14"><use href="#i-reply"/></svg> Ответить
+                  <svg class="lzt-icon lzt-icon--sm"><use href="#i-reply"/></svg> Ответить
                 </button>
               </div>
             </div>
@@ -165,6 +168,7 @@ async with Client(token) as c:
 
             <div class="lzt-post__body">
               <div class="lzt-post__head">
+                <svg class="lzt-icon lzt-icon--sm"><use href="#i-clock"/></svg>
                 <span>12 июля в 15:02</span>
                 <span class="lzt-spacer"></span>
                 <span class="lzt-muted">#2</span>
@@ -199,6 +203,7 @@ async with Client(token) as c:
 
             <div class="lzt-post__body">
               <div class="lzt-post__head">
+                <svg class="lzt-icon lzt-icon--sm"><use href="#i-clock"/></svg>
                 <span>12 июля в 16:40</span>
                 <span class="lzt-spacer"></span>
                 <span class="lzt-muted">#3</span>
@@ -207,6 +212,7 @@ async with Client(token) as c:
                 <p>Проверил на своих задачах — за вечер переписал бампер, который до этого жил
                   тремя костылями. Ретраи и лимиты уже внутри, это экономит больше всего.</p>
                 <div class="lzt-alert lzt-alert--warning">
+                  <span class="lzt-alert__icon"><svg class="lzt-icon"><use href="#i-alert"/></svg></span>
                   <div>
                     <strong class="lzt-alert__title">Осторожно с лимитами</strong>
                     На агрессивных настройках маркет начинает отдавать 429 — не выкручивайте интервал в ноль.
@@ -223,7 +229,7 @@ async with Client(token) as c:
 
         </div>
 
-        <div class="lzt-row lzt-row--between lzt-row--wrap">
+        <div class="lzt-row lzt-row--between lzt-row--wrap lzt-g3">
           <nav class="lzt-pagenav">
             <button class="lzt-pagenav__item is-current">1</button>
             <button class="lzt-pagenav__item">2</button>
@@ -231,18 +237,20 @@ async with Client(token) as c:
             <span class="lzt-pagenav__gap">…</span>
             <button class="lzt-pagenav__item">32</button>
           </nav>
-          <span class="lzt-muted" style="font-size:12px">312 сообщений</span>
+          <span class="lzt-muted lzt-small">312 сообщений</span>
         </div>
 
         <section class="lzt-block">
           <div class="lzt-block__header">Ответить в тему</div>
           <div class="lzt-block__body lzt-stack">
             <textarea class="lzt-textarea" placeholder="Ваше сообщение"></textarea>
-            <div class="lzt-row lzt-row--between lzt-row--wrap">
+            <div class="lzt-row lzt-row--between lzt-row--wrap lzt-g3">
               <label class="lzt-switch"><input type="checkbox" checked> Уведомлять об ответах</label>
               <div class="lzt-row">
                 <button class="lzt-btn">Предпросмотр</button>
-                <button class="lzt-btn lzt-btn--primary" data-lzt-toast="Ответ отправлен">Отправить</button>
+                <button class="lzt-btn lzt-btn--primary" data-lzt-toast="Ответ отправлен">
+                  <svg class="lzt-icon"><use href="#i-send"/></svg> Отправить
+                </button>
               </div>
             </div>
           </div>
@@ -253,6 +261,7 @@ async with Client(token) as c:
   </div>
 </div>
 
+<script src="../lzt-icons.js"></script>
 <script src="../lzt-ui.js"></script>
 </body>
 </html>
