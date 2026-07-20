@@ -21,12 +21,27 @@ die(){ printf '  %s✗ %s%s\n' "$c_red" "$*" "$c_reset" >&2; exit 1; }
 command -v apt-get >/dev/null || die "setup_tls needs apt (Debian/Ubuntu)"
 
 apt-get update -qq
-apt-get install -y -qq nginx
+# gettext-base carries envsubst, which renders deploy/nginx/panel.conf.
+apt-get install -y -qq nginx gettext-base
 if command -v ufw >/dev/null 2>&1; then ufw allow 80/tcp >/dev/null 2>&1 || true; ufw allow 443/tcp >/dev/null 2>&1 || true; fi
 
 SITE=/etc/nginx/sites-available/open-lzt
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PANEL_ROOT="${PANEL_ROOT:-$(cd "$HERE/.." && pwd)/projects/flow/frontend/dist}"
+
+# The location blocks live in deploy/nginx/panel.conf rather than in a heredoc here, because the
+# SSE-critical directives in them (proxy_buffering off and friends) are the kind of thing that gets
+# silently dropped when someone edits a shell heredoc. Only ${PANEL_ROOT}, ${FLOW_PORT} and
+# ${EVENTUS_PORT} are substituted; every $-variable nginx itself owns is left alone.
 proxy_block() {
-  cat <<NGINX
+  if [[ -d "$PANEL_ROOT" ]]; then
+    PANEL_ROOT="$PANEL_ROOT" FLOW_PORT="$FLOW_PORT" EVENTUS_PORT="$EVENTUS_PORT" \
+      envsubst '${PANEL_ROOT} ${FLOW_PORT} ${EVENTUS_PORT}' < "$HERE/nginx/panel.conf"
+  else
+    # No built panel (install.sh skipped the build, or this is an API-only host): serve the API at
+    # the root the way this stand did before the panel existed, rather than serving a 404 page.
+    warn "panel not built at $PANEL_ROOT — serving the API at / instead"
+    cat <<NGINX
     location / {
         proxy_pass http://127.0.0.1:${FLOW_PORT};
         proxy_set_header Host \$host;
@@ -40,6 +55,7 @@ proxy_block() {
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 NGINX
+  fi
 }
 enable_site() {
   ln -sf "$SITE" /etc/nginx/sites-enabled/open-lzt

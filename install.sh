@@ -189,6 +189,28 @@ run "$UV sync --project projects/flow"
 run "$UV sync --project projects/mcp"
 ok "dependencies installed"
 
+# The panel is built from source rather than shipped as a release artifact: building from source is
+# this project's trust story, and a prebuilt bundle would be one more thing to verify. The cost is a
+# node/pnpm prerequisite on what used to be a Python-only host — stated in the README so it is not
+# discovered here.
+build_panel() {
+  command -v node >/dev/null 2>&1 || { warn "node not found — panel not built (API still works)"; return 0; }
+  local pnpm_bin
+  pnpm_bin="$(command -v pnpm 2>/dev/null || true)"
+  if [[ -z "$pnpm_bin" ]]; then
+    # corepack is the supported way to get pnpm without a global npm install, and it is bundled
+    # with node — but it is not always enabled, so failing here is not fatal.
+    corepack enable >/dev/null 2>&1 && pnpm_bin="$(command -v pnpm 2>/dev/null || true)"
+  fi
+  [[ -n "$pnpm_bin" ]] || { warn "pnpm not found — panel not built (see README prerequisites)"; return 0; }
+  ( cd projects/flow/frontend \
+      && "$pnpm_bin" install --frozen-lockfile --prefer-offline \
+      && "$pnpm_bin" run build ) || { warn "panel build failed — the API is unaffected"; return 0; }
+  ok "panel built"
+}
+phase "4b/7 Build the panel"
+if [[ $DRY_RUN == 0 ]]; then build_panel; else info "dry-run: skipping panel build"; fi
+
 # ---- 5. migrations (two separate alembic chains) ------------------------------------------------
 phase "5/7 Database migrations"
 # DSNs are read from the 0600 per-service env files, not passed inline — keeps the DB password

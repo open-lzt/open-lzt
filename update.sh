@@ -40,6 +40,22 @@ phase "2/5 Re-sync dependencies"
 "$UV" sync --project projects/mcp
 ok "deps synced"
 
+phase "2b/5 Rebuild the panel"
+# Rebuilt on every update because the pull above may have changed frontend source; nginx serves the
+# built files straight off disk, so a stale dist would keep showing the previous version with no
+# other symptom. A host with no node still updates — it just keeps whatever panel it had.
+if command -v node >/dev/null 2>&1; then
+  PNPM="$(command -v pnpm 2>/dev/null || { corepack enable >/dev/null 2>&1; command -v pnpm 2>/dev/null; } || true)"
+  if [[ -n "${PNPM:-}" ]]; then
+    ( cd projects/flow/frontend && "$PNPM" install --frozen-lockfile --prefer-offline && "$PNPM" run build ) \
+      && ok "panel rebuilt" || warn "panel rebuild failed — previous build still served"
+  else
+    warn "pnpm not found — panel not rebuilt"
+  fi
+else
+  warn "node not found — panel not rebuilt"
+fi
+
 phase "3/5 Migrations"
 # DSN read from the 0600 env file, not passed inline (keeps the password out of ps).
 ( set -a; . "$INSTALL_DIR/deploy/env/eventus.env"; set +a
