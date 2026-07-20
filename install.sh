@@ -9,7 +9,7 @@
 # about again:
 #   --bot-token T --bot-admins 111,222   telegram admin bot
 #   --domain d --email e                 public HTTPS via Let's Encrypt
-#   --tls selfsigned|none                TLS without a domain / explicitly off
+#   --tls selfsigned|none                force self-signed on a bare IP (the default), or opt out
 #   --market-mode testnet|prod           default testnet
 #   --yes                                take defaults for anything still unset, never prompt
 #
@@ -314,43 +314,8 @@ build_panel() {
   ok "panel built"
 }
 
-# Building the panel is not serving it. `deploy/setup_tls.sh` wires nginx up for a real domain with
-# a certificate, but a plain install has no domain — and without this the build sat in dist/ while
-# http://<host>/ answered 403 from nginx's stock default site.
-serve_panel() {
-  local dist="$INSTALL_DIR/projects/flow/frontend/dist"
-  [[ -f "$dist/index.html" ]] || return 0
-  command -v nginx >/dev/null 2>&1 || { warn "nginx not installed — panel built but not served"; return 0; }
-
-  mkdir -p /etc/nginx/snippets
-  sed -e "s|\${PANEL_ROOT}|$dist|g" \
-      -e "s|\${FLOW_PORT}|$FLOW_PORT|g" \
-      -e "s|\${EVENTUS_PORT}|$EVENTUS_PORT|g" \
-      "$INSTALL_DIR/deploy/nginx/panel.conf" > /etc/nginx/snippets/open-lzt-panel.conf
-
-  cat > /etc/nginx/sites-available/open-lzt-panel <<NGINX
-server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name _;
-    include snippets/open-lzt-panel.conf;
-}
-NGINX
-  # Two `default_server` blocks on the same port is a hard nginx error, so the stock site goes.
-  rm -f /etc/nginx/sites-enabled/default
-  ln -sf /etc/nginx/sites-available/open-lzt-panel /etc/nginx/sites-enabled/open-lzt-panel
-
-  if nginx -t >/dev/null 2>&1; then
-    systemctl reload nginx >/dev/null 2>&1 || systemctl restart nginx >/dev/null 2>&1
-    ok "panel served at http://$(hostname -I 2>/dev/null | awk '{print $1}')/"
-  else
-    rm -f /etc/nginx/sites-enabled/open-lzt-panel
-    warn "nginx rejected the panel site — left untouched, panel not served"
-  fi
-}
-
 phase "4b/7 Build the panel"
-if [[ $DRY_RUN == 0 ]]; then build_panel; serve_panel; else info "dry-run: skipping panel build"; fi
+if [[ $DRY_RUN == 0 ]]; then build_panel; else info "dry-run: skipping panel build"; fi
 
 # ---- 5. migrations (two separate alembic chains) ------------------------------------------------
 phase "5/7 Database migrations"
@@ -426,7 +391,11 @@ fi
 [[ -f deploy/env/bot.env ]] || info "telegram bot: off — enable later with 'sudo bash scripts/bot-bootstrap.sh --token <t> --admins <ids>'"
 
 # ---- public access / TLS ------------------------------------------------------------------------
-phase "Public access & TLS (optional)"
+# A public CA cannot certify a bare IP (no domain), so the default here — nobody opted in or out —
+# is a self-signed cert with the IP itself as subjectAltName. deploy/setup_tls.sh owns ALL nginx
+# site config from here on (plain-HTTP-only counts as one of its modes too), so this is the single
+# place that writes the site, whichever way TLS_MODE resolves.
+phase "Public access & nginx"
 if [[ -n "$ARG_DOMAIN" ]]; then
   DOMAIN="$ARG_DOMAIN"; LETSENCRYPT_EMAIL="$ARG_EMAIL"; TLS_MODE="${ARG_TLS:-letsencrypt}"
 elif [[ -n "$ARG_TLS" ]]; then
@@ -438,19 +407,22 @@ elif [[ $DRY_RUN == 0 && -z "${DOMAIN:-}" && "${TLS_MODE:-none}" == "none" ]] &&
     read -r -p "  Email for Let's Encrypt: " _email </dev/tty || _email=""
     DOMAIN="$_dom"; LETSENCRYPT_EMAIL="$_email"; TLS_MODE="letsencrypt"
   else
-    read -r -p "  No domain. Install a self-signed cert on this IP instead? [y/N]: " _ss </dev/tty || _ss=""
-    [[ "$_ss" =~ ^[Yy] ]] && TLS_MODE="selfsigned" || TLS_MODE="none"
+    read -r -p "  No domain. Install a self-signed cert on this IP instead? [Y/n]: " _ss </dev/tty || _ss=""
+    [[ "$_ss" =~ ^[Nn] ]] && TLS_MODE="none" || TLS_MODE="selfsigned"
   fi
+elif [[ $DRY_RUN == 0 && -z "${DOMAIN:-}" && "${TLS_MODE:-none}" == "none" ]]; then
+  # Non-interactive (--yes) and nobody said --tls none: a bare-IP install still ends up on HTTPS.
+  TLS_MODE="selfsigned"
 fi
 if [[ $DRY_RUN == 0 ]]; then
   set_kv .env DOMAIN "${DOMAIN:-}"; set_kv .env TLS_MODE "${TLS_MODE:-none}"
   set_kv .env LETSENCRYPT_EMAIL "${LETSENCRYPT_EMAIL:-}"
 fi
-if [[ $DRY_RUN == 0 && "${TLS_MODE:-none}" != "none" ]]; then
-  EVENTUS_PORT="${EVENTUS_PORT}" bash deploy/setup_tls.sh "${DOMAIN:-}" "${LETSENCRYPT_EMAIL:-}" "${TLS_MODE}" "${FLOW_PORT}" \
-    || warn "TLS setup had issues — see output above"
+if [[ $DRY_RUN == 0 ]]; then
+  EVENTUS_PORT="${EVENTUS_PORT}" bash deploy/setup_tls.sh "${DOMAIN:-}" "${LETSENCRYPT_EMAIL:-}" "${TLS_MODE:-none}" "${FLOW_PORT}" \
+    || warn "nginx/TLS setup had issues — see output above"
 else
-  info "public access: loopback only (no TLS) — re-run install to set a domain / self-signed cert"
+  info "dry-run: skipping nginx/TLS setup"
 fi
 
 # ---- summary box --------------------------------------------------------------------------------
@@ -470,9 +442,13 @@ svc_line flow-api    "${FLOW_PORT}"
 svc_line flow-worker "-"
 svc_line mcp         "${MCP_PORT}"
 printf '%s├%s┤%s\n' "$c_cyan" "$_rule" "$c_reset"
-if [[ "${TLS_MODE:-none}" != "none" ]]; then
-  printf '%s├%s┤%s\n' "$c_cyan" "$_rule" "$c_reset"
-  printf '%s│%s  %sPublic:%s https://%s\n' "$c_cyan" "$c_reset" "$c_green$c_bold" "$c_reset" "${DOMAIN:-<this-ip>}"
+PANEL_HOST="${DOMAIN:-$(hostname -I 2>/dev/null | awk '{print $1}')}"
+if [[ "${TLS_MODE:-none}" == "none" ]]; then
+  printf '%s│%s  %sPanel:%s http://%s/\n' "$c_cyan" "$c_reset" "$c_green$c_bold" "$c_reset" "${PANEL_HOST:-this-host}"
+else
+  printf '%s│%s  %sPanel:%s https://%s/\n' "$c_cyan" "$c_reset" "$c_green$c_bold" "$c_reset" "${PANEL_HOST:-this-host}"
+  [[ "$TLS_MODE" == "selfsigned" ]] \
+    && printf '%s│%s  %sself-signed cert — the browser will warn once, then remember%s\n' "$c_cyan" "$c_reset" "$c_dim" "$c_reset"
 fi
 printf '%s├%s┤%s\n' "$c_cyan" "$_rule" "$c_reset"
 printf '%s│%s  %sManage:%s update.sh · scripts/healthcheck.sh · scripts/smoke.sh\n' \

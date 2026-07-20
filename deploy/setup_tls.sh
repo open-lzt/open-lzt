@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Set up nginx + TLS in front of the stand. Called by install.sh; can be re-run standalone.
+# Set up nginx (and TLS) in front of the stand. Called by install.sh; can be re-run standalone.
+# The single place that writes the nginx site — install.sh no longer renders one of its own.
 #
 #   deploy/setup_tls.sh <domain> <email> <mode> [flow_port]
 #     mode = letsencrypt  -> nginx + certbot (Let's Encrypt) for <domain>
 #          = selfsigned   -> nginx + a self-signed cert for <domain> or, if empty, this host's IP
+#          = none         -> nginx serves the panel over plain HTTP only, no cert
 #
 # nginx terminates TLS and reverse-proxies to the loopback services:
 #   /            -> flow API   (127.0.0.1:<flow_port>)
@@ -17,7 +19,6 @@ ok(){ printf '  %s✓%s %s\n' "$c_green" "$c_reset" "$*"; }
 warn(){ printf '  %s!%s %s\n' "$c_yellow" "$c_reset" "$*"; }
 die(){ printf '  %s✗ %s%s\n' "$c_red" "$*" "$c_reset" >&2; exit 1; }
 
-[[ "$MODE" == "none" ]] && { ok "TLS mode 'none' — nothing to do"; exit 0; }
 command -v apt-get >/dev/null || die "setup_tls needs apt (Debian/Ubuntu)"
 
 apt-get update -qq
@@ -57,13 +58,27 @@ proxy_block() {
 NGINX
   fi
 }
+# A previous install.sh wrote its own separate site (open-lzt-panel); this is now the only site,
+# so any leftover copy of that one is cleaned up here too, not just the stock default.
 enable_site() {
   ln -sf "$SITE" /etc/nginx/sites-enabled/open-lzt
-  rm -f /etc/nginx/sites-enabled/default
-  nginx -t && systemctl reload nginx
+  rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/open-lzt-panel
+  if nginx -t >/dev/null 2>&1; then
+    systemctl reload nginx >/dev/null 2>&1 || systemctl restart nginx >/dev/null 2>&1
+  else
+    rm -f /etc/nginx/sites-enabled/open-lzt
+    die "nginx rejected the generated site — left untouched, panel not served"
+  fi
 }
+host_ip() { curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}'; }
 
-if [[ "$MODE" == "letsencrypt" ]]; then
+if [[ "$MODE" == "none" ]]; then
+  { echo "server {"; echo "    listen 80 default_server;"; echo "    listen [::]:80 default_server;";
+    echo "    server_name _;"; proxy_block; echo "}"; } > "$SITE"
+  enable_site
+  ok "panel served at http://$(host_ip)/ (no TLS — pass --tls selfsigned for HTTPS)"
+
+elif [[ "$MODE" == "letsencrypt" ]]; then
   [[ -n "$DOMAIN" ]] || die "letsencrypt mode needs a domain"
   [[ -n "$EMAIL" ]]  || die "letsencrypt mode needs an email"
   apt-get install -y -qq certbot python3-certbot-nginx
@@ -81,17 +96,26 @@ if [[ "$MODE" == "letsencrypt" ]]; then
 elif [[ "$MODE" == "selfsigned" ]]; then
   CN="$DOMAIN"; SAN="DNS:${DOMAIN}"
   if [[ -z "$DOMAIN" ]]; then
-    IP="$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')"
+    IP="$(host_ip)"
     CN="$IP"; SAN="IP:${IP}"
   fi
   TLS_DIR=/etc/open-lzt/tls; install -d -m700 "$TLS_DIR"
-  openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
-    -keyout "$TLS_DIR/key.pem" -out "$TLS_DIR/cert.pem" \
-    -subj "/CN=${CN}" -addext "subjectAltName=${SAN}" >/dev/null 2>&1
-  chmod 600 "$TLS_DIR/key.pem"
-  { echo "server {"; echo "    listen 80;"; echo "    server_name ${CN};"; echo "    return 301 https://\$host\$request_uri;"; echo "}";
+  # Stable path, generated once: re-running install.sh must not rotate this cert, or every update
+  # would blow away the browser exception an operator just clicked through.
+  if [[ -f "$TLS_DIR/cert.pem" && -f "$TLS_DIR/key.pem" ]]; then
+    ok "self-signed cert already present at $TLS_DIR — kept as-is (delete it to force a new one)"
+  else
+    openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
+      -keyout "$TLS_DIR/key.pem" -out "$TLS_DIR/cert.pem" \
+      -subj "/CN=${CN}" -addext "subjectAltName=${SAN}" >/dev/null 2>&1
+    chmod 600 "$TLS_DIR/key.pem"
+    ok "generated self-signed cert for ${CN}"
+  fi
+  { echo "server {"; echo "    listen 80 default_server;"; echo "    listen [::]:80 default_server;";
+    echo "    server_name ${CN};"; echo "    return 301 https://\$host\$request_uri;"; echo "}";
     echo "server {";
-    echo "    listen 443 ssl;";
+    echo "    listen 443 ssl default_server;";
+    echo "    listen [::]:443 ssl default_server;";
     echo "    server_name ${CN};";
     echo "    ssl_certificate     ${TLS_DIR}/cert.pem;";
     echo "    ssl_certificate_key ${TLS_DIR}/key.pem;";
@@ -99,4 +123,7 @@ elif [[ "$MODE" == "selfsigned" ]]; then
     echo "}"; } > "$SITE"
   enable_site
   ok "self-signed cert installed for ${CN} — https://${CN} (browsers will warn; it's self-signed)"
+
+else
+  die "unknown TLS mode '$MODE' (want letsencrypt|selfsigned|none)"
 fi
