@@ -354,7 +354,16 @@ asyncio.run(main())
 MCP
 
 step "Панель — собрана и отдаётся"
-req GET "$FLOW/panel/" "" -H "X-API-Key: $FKEY"
+# Панель отдаёт nginx с корня, а не API — прошлая версия демо стучалась в $FLOW/panel/, которого
+# не существует, печатала 404 и всё равно объявляла успех на последнем экране.
+PANEL_URL="${PANEL_URL:-http://127.0.0.1/}"
+panel_status=$(curl -sS -o /tmp/_panel.html -w '%{http_code}' "$PANEL_URL" 2>/dev/null || echo 000)
+printf '  %s→ GET %s%s → %s\n' "$c_blue" "$PANEL_URL" "$c_reset" "$panel_status"
+if [[ "$panel_status" == "200" ]] && grep -qi '<html\|<!doctype' /tmp/_panel.html; then
+  ok "панель отдаёт HTML ($(wc -c < /tmp/_panel.html) байт)"
+else
+  fail "панель не отдаётся: HTTP $panel_status — фронтенд не собран или nginx не настроен"
+fi
 
 # ── итог ───────────────────────────────────────────────────────────────────────
 printf '\n%s╔%s╗%s\n' "$c_cyan" "$_rule" "$c_reset"

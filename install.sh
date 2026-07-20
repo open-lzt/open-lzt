@@ -313,8 +313,44 @@ build_panel() {
       && "$pnpm_bin" run build </dev/null ) || { warn "panel build failed — the API is unaffected"; return 0; }
   ok "panel built"
 }
+
+# Building the panel is not serving it. `deploy/setup_tls.sh` wires nginx up for a real domain with
+# a certificate, but a plain install has no domain — and without this the build sat in dist/ while
+# http://<host>/ answered 403 from nginx's stock default site.
+serve_panel() {
+  local dist="$INSTALL_DIR/projects/flow/frontend/dist"
+  [[ -f "$dist/index.html" ]] || return 0
+  command -v nginx >/dev/null 2>&1 || { warn "nginx not installed — panel built but not served"; return 0; }
+
+  mkdir -p /etc/nginx/snippets
+  sed -e "s|\${PANEL_ROOT}|$dist|g" \
+      -e "s|\${FLOW_PORT}|$FLOW_PORT|g" \
+      -e "s|\${EVENTUS_PORT}|$EVENTUS_PORT|g" \
+      "$INSTALL_DIR/deploy/nginx/panel.conf" > /etc/nginx/snippets/open-lzt-panel.conf
+
+  cat > /etc/nginx/sites-available/open-lzt-panel <<NGINX
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    include snippets/open-lzt-panel.conf;
+}
+NGINX
+  # Two `default_server` blocks on the same port is a hard nginx error, so the stock site goes.
+  rm -f /etc/nginx/sites-enabled/default
+  ln -sf /etc/nginx/sites-available/open-lzt-panel /etc/nginx/sites-enabled/open-lzt-panel
+
+  if nginx -t >/dev/null 2>&1; then
+    systemctl reload nginx >/dev/null 2>&1 || systemctl restart nginx >/dev/null 2>&1
+    ok "panel served at http://$(hostname -I 2>/dev/null | awk '{print $1}')/"
+  else
+    rm -f /etc/nginx/sites-enabled/open-lzt-panel
+    warn "nginx rejected the panel site — left untouched, panel not served"
+  fi
+}
+
 phase "4b/7 Build the panel"
-if [[ $DRY_RUN == 0 ]]; then build_panel; else info "dry-run: skipping panel build"; fi
+if [[ $DRY_RUN == 0 ]]; then build_panel; serve_panel; else info "dry-run: skipping panel build"; fi
 
 # ---- 5. migrations (two separate alembic chains) ------------------------------------------------
 phase "5/7 Database migrations"
