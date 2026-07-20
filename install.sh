@@ -64,6 +64,12 @@ export PATH="/root/.local/bin:$PATH"
 # A dry run never sources .env, so every later `$MARKET_MODE`/`$*_PORT` would trip `set -u` and
 # abort the very mode whose job is to abort nothing. Sourcing .env below overrides these when it
 # exists; the values here match .env.example so a dry run prints what a real run would do.
+#
+# `ENV_MARKET_MODE` is the exception that must survive that source. `MARKET_MODE=prod ./install.sh`
+# reads as an override of the file, but `source .env` silently put the file's value back — so the
+# caller asked for prod, got testnet, and every later line agreed it was fine. Captured here,
+# re-applied after the source.
+ENV_MARKET_MODE="${MARKET_MODE:-}"
 MARKET_MODE="${MARKET_MODE:-testnet}"
 TESTNET_PORT="${TESTNET_PORT:-8765}"
 EVENTUS_PORT="${EVENTUS_PORT:-27543}"
@@ -123,10 +129,12 @@ if [[ $DRY_RUN == 0 ]]; then
   set -a && source .env && set +a
   chmod 600 .env
 fi
-if [[ -n "$ARG_MARKET_MODE" ]]; then
-  [[ "$ARG_MARKET_MODE" == testnet || "$ARG_MARKET_MODE" == prod ]] \
-    || die "--market-mode must be testnet or prod, got '$ARG_MARKET_MODE'"
-  MARKET_MODE="$ARG_MARKET_MODE"
+# Precedence, most explicit first: --market-mode flag, then an inherited MARKET_MODE, then .env.
+REQUESTED_MODE="${ARG_MARKET_MODE:-$ENV_MARKET_MODE}"
+if [[ -n "$REQUESTED_MODE" ]]; then
+  [[ "$REQUESTED_MODE" == testnet || "$REQUESTED_MODE" == prod ]] \
+    || die "market mode must be testnet or prod, got '$REQUESTED_MODE'"
+  MARKET_MODE="$REQUESTED_MODE"
   [[ $DRY_RUN == 0 ]] && set_kv .env MARKET_MODE "$MARKET_MODE"
 fi
 ok "config ready (MARKET_MODE=${MARKET_MODE:-testnet})"
@@ -168,6 +176,15 @@ render_envs() {
   local eventus_tokens="${EVENTUS_TOKENS}"
   if [[ "${MARKET_MODE}" == "testnet" && ( -z "${eventus_tokens}" || "${eventus_tokens}" == "[]" ) ]]; then
     eventus_tokens='["testnet-fake-token"]'
+  fi
+  # `.env` is read with `source`, and bash strips the quotes out of EVENTUS_TOKENS=["tok"] — so a
+  # value written exactly as .env.example documents it arrives here as [tok] and reaches the daemon
+  # as invalid JSON, surfacing at boot as a SettingsError three layers from the cause. Re-quote the
+  # bare elements rather than making every user learn to single-quote the line.
+  if [[ "${eventus_tokens}" =~ ^\[.+\]$ && "${eventus_tokens}" != *'"'* ]]; then
+    eventus_tokens="$(printf '%s' "${eventus_tokens}" \
+      | sed -E 's/^\[//; s/\]$//; s/[[:space:]]//g; s/([^,]+)/"\1"/g; s/^/[/; s/$/]/')"
+    info "re-quoted EVENTUS_TOKENS into valid JSON (bash 'source' had eaten the quotes)"
   fi
 
   cat > deploy/env/testnet.env <<EOF
@@ -320,8 +337,15 @@ phase "6/7 systemd services"
 run "install -m644 deploy/systemd/open-lzt-*.service /etc/systemd/system/"
 run "install -m644 deploy/systemd/open-lzt-*.timer /etc/systemd/system/"
 run "systemctl daemon-reload"
+# `enable --now` starts a stopped unit and does NOTHING to a running one — so on a re-run the
+# services kept serving the previous config. That made a mode switch a lie in both directions:
+# `--market-mode prod` re-rendered every env file, reported success, and left the worker talking to
+# the mock; the reverse would leave it on the real marketplace after a switch back to testnet.
+# The installer has just rewritten EnvironmentFile= for every unit, so restarting is the only
+# honest end state.
 for svc in testnet eventus flow-api flow-worker mcp; do
-  run "systemctl enable --now open-lzt-${svc}.service"
+  run "systemctl enable open-lzt-${svc}.service"
+  run "systemctl restart open-lzt-${svc}.service"
 done
 # The bot is deliberately NOT in that list: without a token and an admin list it would crash-loop,
 # and with a token but no admin list it would answer everyone. scripts/bot-bootstrap.sh enables it

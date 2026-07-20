@@ -126,7 +126,16 @@ if [[ "$MODE" == prod ]]; then
   printf '%s│%s Максимальная трата: %s ₽. Отменить покупку нельзя.\n' "$c_red" "$c_reset" "$((BUY_COUNT * BUY_MAX_PRICE))"
   printf '%s╰%s╯%s\n' "$c_red" "$_rule" "$c_reset"
   if [[ $ASSUME_YES == 0 ]]; then
-    read -r -p "  Напиши БУДУ ПОКУПАТЬ чтобы продолжить: " confirm </dev/tty || confirm=""
+    # `-e /dev/tty` alone is true on every box, attended or not; without also checking that
+    # *our own* stdin is a terminal, an unattended run (cron, CI, systemd) would block forever
+    # on the read instead of failing fast — same class of bug the installer had. Money is on
+    # the line here, so the safe default when we can't ask is to refuse, not proceed.
+    if [[ -t 0 && -e /dev/tty ]]; then
+      read -r -p "  Напиши БУДУ ПОКУПАТЬ чтобы продолжить: " confirm </dev/tty || confirm=""
+    else
+      bad "не интерактивный запуск — нет тти для подтверждения (передай --yes для авто-подтверждения)"
+      exit 1
+    fi
     [[ "$confirm" == "БУДУ ПОКУПАТЬ" ]] || { bad "не подтверждено — выходим"; exit 1; }
   fi
 fi
@@ -138,7 +147,9 @@ if [[ $SKIP_INSTALL == 0 ]]; then
   say "накатывает обе цепочки миграций и поднимает пять systemd-сервисов."
   say "Ниже — его собственный вывод, ничего не спрятано."
   printf '\n'
-  MARKET_MODE="$MODE" bash install.sh || fail "install.sh вернул ошибку"
+  # The flag, not the environment variable: `--mode prod` must reach the installer as an explicit
+  # request, and a flag cannot be quietly overwritten by whatever .env already said.
+  bash install.sh --yes --market-mode "$MODE" || fail "install.sh вернул ошибку"
 else
   scene "1/8  Установка — пропущена (--skip-install)"
 fi
@@ -244,9 +255,38 @@ else
 fi
 req POST "$FLOW/accounts/create" "{\"token\":\"$ACCOUNT_TOKEN\"}" -H "X-API-Key: $FKEY"
 ACCOUNT_ID=$(jget id)
+if [[ -n "$ACCOUNT_ID" ]]; then
+  # Label it so a re-run can find this exact account again. Without that, the second run of the
+  # demo hits "this token is already added", ends up with an empty id, and every step downstream
+  # fails on a blank account_ref instead of reusing what is already there.
+  req POST "$FLOW/accounts/$ACCOUNT_ID/label" '{"label":"demo"}' -H "X-API-Key: $FKEY"
+else
+  say "аккаунт с этим токеном уже заведён — ищем его по метке demo, а не плодим второй"
+  req GET "$FLOW/accounts/list" "" -H "X-API-Key: $FKEY"
+  ACCOUNT_ID=$(printf '%s' "$LAST_RESPONSE" | python3 -c 'import json,sys
+try:
+    rows = json.load(sys.stdin)
+    rows = rows if isinstance(rows, list) else rows.get("items", [])
+except Exception:
+    rows = []
+labelled = [r for r in rows if r.get("label") == "demo" and r.get("status") == "active"]
+print(labelled[0]["id"] if labelled else "")')
+fi
+[[ -n "$ACCOUNT_ID" ]] && ok "аккаунт $ACCOUNT_ID" || fail "не удалось получить аккаунт для флоу"
 
 step "Заливаем флоу автобая из каталога lzt-flows"
-FLOW_SPEC=$(cat lzt-flows/modules/steam-autobuy/flow.json)
+say "Узлы пинятся к только что созданному аккаунту (account_ref)."
+say "Иначе рынок читался бы через общий пул токенов тенанта, где лежат аккаунты прошлых прогонов."
+FLOW_SPEC=$(ACCOUNT_ID="$ACCOUNT_ID" python3 -c '
+import json, os, sys, pathlib
+
+spec = json.loads(pathlib.Path("lzt-flows/modules/steam-autobuy/flow.json").read_text(encoding="utf-8"))
+account_id = os.environ["ACCOUNT_ID"]
+for node in spec["nodes"]:
+    if node["type"].startswith("market."):
+        node["account_ref"] = account_id
+json.dump(spec, sys.stdout, ensure_ascii=False)
+')
 req POST "$FLOW/flows/create" "$FLOW_SPEC" -H "X-API-Key: $FKEY"
 FLOW_ID=$(jget flow_id)
 [[ -n "$FLOW_ID" ]] || fail "флоу не создался"
