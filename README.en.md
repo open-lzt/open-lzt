@@ -24,14 +24,15 @@
 
 ### The projects
 
-| Project | Role | Local docs |
+| Project | Role | Docs |
 |---|---|---|
-| [pylzt](projects/pylzt) | Typed async SDK over the market API — the foundation | [README](projects/pylzt/README.md) |
-| [testnet](projects/testnet) | Mock lzt.market — the offline double every service hits | [docs/for_ai](projects/testnet/docs/for_ai/) |
-| [eventus](projects/eventus) | Event engine: poll → durable log → REST/webhook/SSE/WS | [architecture](projects/eventus/docs/architecture.md) · [extending](projects/eventus/docs/extending.md) |
-| [eventus-sdk](projects/eventus-sdk) | Async client for eventus | [architecture](projects/eventus-sdk/docs/architecture.md) |
-| [flow](projects/flow) | No-code automation engine (flows + plugins) | [flow-design](projects/flow/docs/flow-design-guide.md) · [modules](projects/flow/docs/modules.md) · [plugins](projects/flow/docs/plugins.md) |
-| [mcp](projects/mcp) | MCP server for AI agents (testnet-default) | [README](projects/mcp/README.md) |
+| [pylzt](https://github.com/open-lzt/pylzt) | Typed async SDK over the market API — the foundation | [README](https://github.com/open-lzt/pylzt#readme) |
+| [testnet](https://github.com/open-lzt/lzt-testnet) | Mock lzt.market — the offline double every service hits | [docs/for_ai](https://github.com/open-lzt/lzt-testnet/tree/main/docs/for_ai) |
+| [eventus](https://github.com/open-lzt/lzt-eventus) | Event engine: poll → durable log → REST/webhook/SSE/WS | [architecture](https://github.com/open-lzt/lzt-eventus/blob/main/docs/architecture.md) · [extending](https://github.com/open-lzt/lzt-eventus/blob/main/docs/extending.md) |
+| [eventus-sdk](https://github.com/open-lzt/lzt-eventus-sdk) | Async client for eventus | [architecture](https://github.com/open-lzt/lzt-eventus-sdk/blob/main/docs/architecture.md) |
+| [flow](https://github.com/open-lzt/auto-lzt) | No-code automation engine (flows + plugins) | [flow-design](https://github.com/open-lzt/auto-lzt/blob/main/docs/flow-design-guide.md) · [modules](https://github.com/open-lzt/auto-lzt/blob/main/docs/modules.md) · [plugins](https://github.com/open-lzt/auto-lzt/blob/main/docs/plugins.md) |
+| [mcp](https://github.com/open-lzt/lzt-mcp) | MCP server for AI agents (testnet-default) | [README](https://github.com/open-lzt/lzt-mcp#readme) |
+| [lzt-ui](https://github.com/open-lzt/lzt-ui) | LZT-style UI kit: tokens, components, demo forum | [README](https://github.com/open-lzt/lzt-ui#readme) |
 
 [AI-agent docs](docs/for_ai/) · [Architecture](docs/ARCHITECTURE.en.md) · [Why](docs/WHY.en.md) · [Contributing](CONTRIBUTING.en.md)
 
