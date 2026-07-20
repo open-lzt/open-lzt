@@ -171,7 +171,7 @@ render_envs() {
   local redis="redis://:${REDIS_PASSWORD}@127.0.0.1:${REDIS_PORT}"
   local testnet_url=""
   [[ "${MARKET_MODE}" == "testnet" ]] && testnet_url="http://127.0.0.1:${TESTNET_PORT}"
-  # The eventus engine builds an lztforge Client eagerly at boot and refuses an empty token list.
+  # The eventus engine builds a pylzt Client eagerly at boot and refuses an empty token list.
   # In testnet mode a placeholder token is enough (the mock accepts any bearer).
   local eventus_tokens="${EVENTUS_TOKENS}"
   if [[ "${MARKET_MODE}" == "testnet" && ( -z "${eventus_tokens}" || "${eventus_tokens}" == "[]" ) ]]; then
@@ -489,6 +489,6 @@ note "(tools: create_flow · compile_flow · create_run · get_run_trace · crea
 cmd "MARKET_MODE=testnet means every call hits the mock — no real money, no real token."
 
 h "Docs & source"
-note "monorepo   https://github.com/zlexdev/open-lzt        (README · docs/AUTOUPDATE.md)"
-note "projects   /pylzt(lztforge) /lzt-testnet /lzt-eventus /lzt-flow /lzt-mcp under github.com/zlexdev"
+note "monorepo   https://github.com/open-lzt/open-lzt        (README · docs/AUTOUPDATE.md)"
+note "projects   /pylzt /lzt-testnet /lzt-eventus /auto-lzt /lzt-mcp under github.com/open-lzt"
 printf '\n'
