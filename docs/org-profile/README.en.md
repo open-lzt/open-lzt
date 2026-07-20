@@ -18,6 +18,17 @@
 
 <br/>
 
+### See all of it in one command
+
+```bash
+git clone --recurse-submodules https://github.com/open-lzt/open-lzt /opt/open-lzt \
+  && cd /opt/open-lzt && sudo bash demo.sh
+```
+
+Brings the stand up from scratch and walks an end-to-end demo: mock market, SDK, event engine, a flow buying Steam accounts, MCP server. Every request and every response is printed as-is. Nothing touches the real market — that needs an explicit `--mode prod`.
+
+<br/>
+
 <table align="center">
 <tr>
 <td align="center" width="260"><b>Testnet by default</b><br/><sub>everything runs against a mock market — no token,<br/>no real money, no real account</sub></td>

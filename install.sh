@@ -5,12 +5,40 @@
 #   sudo ./install.sh            # install / reinstall / update in place
 #   sudo ./install.sh --dry-run  # print what it would do, change nothing
 #
+# Everything it would otherwise ask for can be given up front, and anything given is never asked
+# about again:
+#   --bot-token T --bot-admins 111,222   telegram admin bot
+#   --domain d --email e                 public HTTPS via Let's Encrypt
+#   --tls selfsigned|none                TLS without a domain / explicitly off
+#   --market-mode testnet|prod           default testnet
+#   --yes                                take defaults for anything still unset, never prompt
+#
 # Assumes Debian/Ubuntu + systemd + root. See README.md for the port map.
 set -euo pipefail
 
 INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DRY_RUN=0
-[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
+ASSUME_YES=0
+ARG_BOT_TOKEN=""; ARG_BOT_ADMINS=""; ARG_DOMAIN=""; ARG_EMAIL=""; ARG_TLS=""; ARG_MARKET_MODE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run) DRY_RUN=1; shift ;;
+    --yes|-y|--non-interactive) ASSUME_YES=1; shift ;;
+    --bot-token) ARG_BOT_TOKEN="${2:-}"; shift 2 ;;
+    --bot-admins) ARG_BOT_ADMINS="${2:-}"; shift 2 ;;
+    --domain) ARG_DOMAIN="${2:-}"; shift 2 ;;
+    --email) ARG_EMAIL="${2:-}"; shift 2 ;;
+    --tls) ARG_TLS="${2:-}"; shift 2 ;;
+    --market-mode) ARG_MARKET_MODE="${2:-}"; shift 2 ;;
+    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    *) printf 'unknown flag: %s (try --help)\n' "$1" >&2; exit 2 ;;
+  esac
+done
+
+# One question, asked in exactly one place: may this run stop and wait for a human? A flag that
+# supplied the answer, `--yes`, or a stdin that is not a terminal all mean no.
+interactive() { [[ $ASSUME_YES == 0 && -t 0 && -e /dev/tty ]]; }
 
 # ---- pretty output ------------------------------------------------------------------------------
 c_reset=$'\033[0m'; c_cyan=$'\033[1;36m'; c_green=$'\033[1;32m'; c_yellow=$'\033[1;33m'
@@ -32,6 +60,15 @@ set_kv() { local f="$1" k="$2" v="$3"; if grep -q "^${k}=" "$f"; then sed -i "s|
 
 UV=/root/.local/bin/uv
 export PATH="/root/.local/bin:$PATH"
+
+# A dry run never sources .env, so every later `$MARKET_MODE`/`$*_PORT` would trip `set -u` and
+# abort the very mode whose job is to abort nothing. Sourcing .env below overrides these when it
+# exists; the values here match .env.example so a dry run prints what a real run would do.
+MARKET_MODE="${MARKET_MODE:-testnet}"
+TESTNET_PORT="${TESTNET_PORT:-8765}"
+EVENTUS_PORT="${EVENTUS_PORT:-27543}"
+FLOW_PORT="${FLOW_PORT:-8000}"
+MCP_PORT="${MCP_PORT:-8770}"
 
 banner
 
@@ -85,6 +122,12 @@ if [[ $DRY_RUN == 0 ]]; then
   ensure_secret EVENTUS_ADMIN_API_KEY gen_hex
   set -a && source .env && set +a
   chmod 600 .env
+fi
+if [[ -n "$ARG_MARKET_MODE" ]]; then
+  [[ "$ARG_MARKET_MODE" == testnet || "$ARG_MARKET_MODE" == prod ]] \
+    || die "--market-mode must be testnet or prod, got '$ARG_MARKET_MODE'"
+  MARKET_MODE="$ARG_MARKET_MODE"
+  [[ $DRY_RUN == 0 ]] && set_kv .env MARKET_MODE "$MARKET_MODE"
 fi
 ok "config ready (MARKET_MODE=${MARKET_MODE:-testnet})"
 
@@ -183,10 +226,49 @@ git config --global --get-all safe.directory 2>/dev/null | grep -qx "$INSTALL_DI
 for d in "$INSTALL_DIR"/projects/*/; do git config --global --add safe.directory "${d%/}" 2>/dev/null || true; done
 # projects/* are git submodules — populate them if the repo was cloned without --recurse-submodules.
 [[ -f .gitmodules ]] && run "git submodule update --init --recursive"
-run "$UV sync --project projects/testnet"
-run "$UV sync --project projects/eventus --extra engine"
-run "$UV sync --project projects/flow"
-run "$UV sync --project projects/mcp"
+
+# Five sequential `uv sync` runs spend almost all their wall-clock waiting on the network, one
+# project at a time, on a box with cores to spare — so they run concurrently instead. uv's cache
+# and lockfiles make this safe: each project resolves its own venv, and the shared download cache
+# is concurrency-safe by design. On a cold host this is the difference between ~half an hour and
+# a few minutes.
+sync_projects() {
+  local -a projects=(
+    "testnet|--project projects/testnet"
+    "eventus|--project projects/eventus --extra engine"
+    "eventus-sdk|--project projects/eventus-sdk"
+    "flow|--project projects/flow"
+    "mcp|--project projects/mcp"
+  )
+  local -a pids=() names=()
+  local entry name args logfile
+  for entry in "${projects[@]}"; do
+    name="${entry%%|*}"; args="${entry#*|}"
+    logfile="/tmp/open-lzt-sync-${name}.log"
+    # shellcheck disable=SC2086 — args is a deliberate word-split argument list
+    "$UV" sync $args >"$logfile" 2>&1 &
+    pids+=("$!"); names+=("$name")
+    info "syncing $name …"
+  done
+  local i failed=0
+  for i in "${!pids[@]}"; do
+    if wait "${pids[$i]}"; then
+      ok "${names[$i]} synced"
+    else
+      failed=1
+      warn "${names[$i]} FAILED — tail of /tmp/open-lzt-sync-${names[$i]}.log:"
+      tail -15 "/tmp/open-lzt-sync-${names[$i]}.log" | sed 's/^/      /'
+    fi
+  done
+  return $failed
+}
+if [[ $DRY_RUN == 0 ]]; then
+  # More parallel downloads than the default: the bottleneck here is latency, not bandwidth.
+  export UV_CONCURRENT_DOWNLOADS="${UV_CONCURRENT_DOWNLOADS:-16}"
+  sync_projects || die "dependency install failed — see the logs above"
+else
+  info "dry-run: skipping uv sync"
+fi
 ok "dependencies installed"
 
 # The panel is built from source rather than shipped as a release artifact: building from source is
@@ -195,17 +277,23 @@ ok "dependencies installed"
 # discovered here.
 build_panel() {
   command -v node >/dev/null 2>&1 || { warn "node not found — panel not built (API still works)"; return 0; }
+  # On a stock Debian/Ubuntu node package, `pnpm` on PATH is a corepack SHIM: it asks
+  # "Do you want to continue?" before fetching the real pnpm — on EVERY invocation, not just the
+  # first. Unset, that prompt hangs an unattended install forever instead of failing it, so the
+  # whole panel build runs with the prompt disabled and stdin closed.
+  export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
   local pnpm_bin
   pnpm_bin="$(command -v pnpm 2>/dev/null || true)"
   if [[ -z "$pnpm_bin" ]]; then
     # corepack is the supported way to get pnpm without a global npm install, and it is bundled
     # with node — but it is not always enabled, so failing here is not fatal.
-    corepack enable >/dev/null 2>&1 && pnpm_bin="$(command -v pnpm 2>/dev/null || true)"
+    corepack enable >/dev/null 2>&1 </dev/null \
+      && pnpm_bin="$(command -v pnpm 2>/dev/null || true)"
   fi
   [[ -n "$pnpm_bin" ]] || { warn "pnpm not found — panel not built (see README prerequisites)"; return 0; }
   ( cd projects/flow/frontend \
-      && "$pnpm_bin" install --frozen-lockfile --prefer-offline \
-      && "$pnpm_bin" run build ) || { warn "panel build failed — the API is unaffected"; return 0; }
+      && "$pnpm_bin" install --frozen-lockfile --prefer-offline </dev/null \
+      && "$pnpm_bin" run build </dev/null ) || { warn "panel build failed — the API is unaffected"; return 0; }
   ok "panel built"
 }
 phase "4b/7 Build the panel"
@@ -257,26 +345,33 @@ ok "install complete"
 
 # ---- telegram bot (optional) ---------------------------------------------------------------------
 phase "Telegram admin bot (optional)"
-if [[ $DRY_RUN == 0 && -z "$(grep -m1 '^BOT_TOKEN=' .env | cut -d= -f2-)" && -e /dev/tty ]]; then
-  printf '  Manage this stand from Telegram? Paste a bot token from @BotFather, or leave blank.
-'
+_tok="$ARG_BOT_TOKEN"; _admins="$ARG_BOT_ADMINS"
+if [[ $DRY_RUN == 0 && -z "$_tok" && -z "$(grep -m1 '^BOT_TOKEN=' .env | cut -d= -f2-)" ]] \
+   && interactive; then
+  printf '  Manage this stand from Telegram? Paste a bot token from @BotFather, or leave blank.\n'
   read -r -p "  Bot token [skip]: " _tok </dev/tty || _tok=""
   if [[ -n "$_tok" ]]; then
-    printf '  Your numeric Telegram id (from @userinfobot). Only these ids can control the stand.
-'
+    printf '  Your numeric Telegram id (from @userinfobot). Only these ids can control the stand.\n'
     read -r -p "  Admin ids (comma-separated): " _admins </dev/tty || _admins=""
-    if [[ -n "$_admins" ]]; then
-      bash scripts/bot-bootstrap.sh --token "$_tok" --admins "$_admins"         || warn "bot setup had issues — see output above"
-    else
-      warn "no admin ids given — bot NOT started (a bot with no admins answers everyone)"
-    fi
+  fi
+fi
+if [[ $DRY_RUN == 0 && -n "$_tok" ]]; then
+  if [[ -n "$_admins" ]]; then
+    bash scripts/bot-bootstrap.sh --token "$_tok" --admins "$_admins" \
+      || warn "bot setup had issues — see output above"
+  else
+    warn "a bot token without admin ids answers everyone — bot NOT started (pass --bot-admins)"
   fi
 fi
 [[ -f deploy/env/bot.env ]] || info "telegram bot: off — enable later with 'sudo bash scripts/bot-bootstrap.sh --token <t> --admins <ids>'"
 
 # ---- public access / TLS ------------------------------------------------------------------------
 phase "Public access & TLS (optional)"
-if [[ $DRY_RUN == 0 && -z "${DOMAIN:-}" && "${TLS_MODE:-none}" == "none" && -e /dev/tty ]]; then
+if [[ -n "$ARG_DOMAIN" ]]; then
+  DOMAIN="$ARG_DOMAIN"; LETSENCRYPT_EMAIL="$ARG_EMAIL"; TLS_MODE="${ARG_TLS:-letsencrypt}"
+elif [[ -n "$ARG_TLS" ]]; then
+  TLS_MODE="$ARG_TLS"
+elif [[ $DRY_RUN == 0 && -z "${DOMAIN:-}" && "${TLS_MODE:-none}" == "none" ]] && interactive; then
   printf '  Expose the stand over HTTPS? Enter a domain (its DNS must point at this server), or leave blank.\n'
   read -r -p "  Domain [none]: " _dom </dev/tty || _dom=""
   if [[ -n "$_dom" ]]; then
@@ -286,7 +381,10 @@ if [[ $DRY_RUN == 0 && -z "${DOMAIN:-}" && "${TLS_MODE:-none}" == "none" && -e /
     read -r -p "  No domain. Install a self-signed cert on this IP instead? [y/N]: " _ss </dev/tty || _ss=""
     [[ "$_ss" =~ ^[Yy] ]] && TLS_MODE="selfsigned" || TLS_MODE="none"
   fi
-  set_kv .env DOMAIN "${DOMAIN:-}"; set_kv .env TLS_MODE "$TLS_MODE"; set_kv .env LETSENCRYPT_EMAIL "${LETSENCRYPT_EMAIL:-}"
+fi
+if [[ $DRY_RUN == 0 ]]; then
+  set_kv .env DOMAIN "${DOMAIN:-}"; set_kv .env TLS_MODE "${TLS_MODE:-none}"
+  set_kv .env LETSENCRYPT_EMAIL "${LETSENCRYPT_EMAIL:-}"
 fi
 if [[ $DRY_RUN == 0 && "${TLS_MODE:-none}" != "none" ]]; then
   EVENTUS_PORT="${EVENTUS_PORT}" bash deploy/setup_tls.sh "${DOMAIN:-}" "${LETSENCRYPT_EMAIL:-}" "${TLS_MODE}" "${FLOW_PORT}" \
