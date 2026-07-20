@@ -33,6 +33,9 @@ wait_for_port() { # port name timeout
 
 command -v uv >/dev/null || die "uv not found"
 command -v pnpm >/dev/null || die "pnpm not found (corepack enable)"
+# pnpm on a stock Debian/Ubuntu node package is a corepack SHIM that asks "Do you want to
+# continue?" on every invocation unless this is set (see install.sh's build_panel).
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
 info "starting the flow API…"
 ( cd "$FLOW" && uv run python dev.py --port "$API_PORT" ) &

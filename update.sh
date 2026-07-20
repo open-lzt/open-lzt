@@ -34,20 +34,53 @@ fi
 set -a && source .env && set +a
 
 phase "2/5 Re-sync dependencies"
-"$UV" sync --project projects/testnet
-"$UV" sync --project projects/eventus --extra engine
-"$UV" sync --project projects/flow
-"$UV" sync --project projects/mcp
-ok "deps synced"
+# Four independent projects — run concurrently instead of paying network latency four times over
+# (same rationale as install.sh's sync_projects).
+sync_projects() {
+  local -a projects=(
+    "testnet|--project projects/testnet"
+    "eventus|--project projects/eventus --extra engine"
+    "flow|--project projects/flow"
+    "mcp|--project projects/mcp"
+  )
+  local -a pids=() names=()
+  local entry name args logfile
+  for entry in "${projects[@]}"; do
+    name="${entry%%|*}"; args="${entry#*|}"
+    logfile="/tmp/open-lzt-update-sync-${name}.log"
+    # shellcheck disable=SC2086 — args is a deliberate word-split argument list
+    "$UV" sync $args >"$logfile" 2>&1 &
+    pids+=("$!"); names+=("$name")
+  done
+  local i failed=0
+  for i in "${!pids[@]}"; do
+    if wait "${pids[$i]}"; then
+      ok "${names[$i]} synced"
+    else
+      failed=1
+      warn "${names[$i]} FAILED — tail of /tmp/open-lzt-update-sync-${names[$i]}.log:"
+      tail -15 "/tmp/open-lzt-update-sync-${names[$i]}.log" | sed 's/^/      /'
+    fi
+  done
+  return $failed
+}
+export UV_CONCURRENT_DOWNLOADS="${UV_CONCURRENT_DOWNLOADS:-16}"
+sync_projects && ok "deps synced" || { warn "dependency sync failed — see logs above"; exit 1; }
 
 phase "2b/5 Rebuild the panel"
 # Rebuilt on every update because the pull above may have changed frontend source; nginx serves the
 # built files straight off disk, so a stale dist would keep showing the previous version with no
 # other symptom. A host with no node still updates — it just keeps whatever panel it had.
 if command -v node >/dev/null 2>&1; then
-  PNPM="$(command -v pnpm 2>/dev/null || { corepack enable >/dev/null 2>&1; command -v pnpm 2>/dev/null; } || true)"
+  # pnpm on a stock Debian/Ubuntu node package is a corepack SHIM that asks "Do you want to
+  # continue?" on every invocation unless this is set — see install.sh's build_panel for the
+  # full rationale. Same fix here: prompt disabled, stdin closed on every pnpm call.
+  export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+  PNPM="$(command -v pnpm 2>/dev/null || { corepack enable >/dev/null 2>&1 </dev/null; command -v pnpm 2>/dev/null; } || true)"
   if [[ -n "${PNPM:-}" ]]; then
-    ( cd projects/flow/frontend && "$PNPM" install --frozen-lockfile --prefer-offline && "$PNPM" run build ) \
+    ( cd projects/flow/frontend \
+        && "$PNPM" install --frozen-lockfile --prefer-offline </dev/null \
+        && "$PNPM" run build </dev/null ) \
       && ok "panel rebuilt" || warn "panel rebuild failed — previous build still served"
   else
     warn "pnpm not found — panel not rebuilt"

@@ -34,7 +34,7 @@
 | [mcp](https://github.com/open-lzt/lzt-mcp) | MCP server for AI agents (testnet-default) | [README](https://github.com/open-lzt/lzt-mcp#readme) |
 | [lzt-ui](https://github.com/open-lzt/lzt-ui) | LZT-style UI kit: tokens, components, demo forum | [README](https://github.com/open-lzt/lzt-ui#readme) |
 
-[AI-agent docs](docs/for_ai/) · [Architecture](docs/ARCHITECTURE.en.md) · [Why](docs/WHY.en.md) · [Contributing](CONTRIBUTING.en.md)
+[AI-agent docs](docs/for_ai/) · [Architecture](docs/ARCHITECTURE.en.md) · [Why](docs/WHY.en.md) · [Contributing](CONTRIBUTING.en.md) · [Marketplace API traps](docs/lzt-gotchas/)
 
 ---
 
@@ -68,6 +68,34 @@ cd /opt/open-lzt && set -a && . .env && set +a && bash scripts/healthcheck.sh
 ```
 
 > All ports bind to `127.0.0.1` — this is an internal stand. Reach the services from your workstation over an SSH tunnel (see [Remote access](#remote-access)), not by exposing them publicly.
+
+---
+
+## Install a ready-made flow — one command
+
+The stand is up; now you want an actual scenario. `install-flow.sh` takes a module from the
+catalogue, asks for its parameters and creates the flow:
+
+```bash
+wget -qO- https://github.com/open-lzt/open-lzt/raw/main/install-flow.sh | sudo bash
+```
+
+It prints a numbered menu of modules, asks for price, count and dry-run, creates the flow and
+offers to start it.
+
+**It does not install the stand.** With no stand present it prints the `install.sh` command and
+exits — it downloads nothing and installs nothing on its own.
+
+Unattended, from a script or CI, the same thing with flags:
+
+```bash
+sudo bash install-flow.sh --module steam-autobuy --param max_price=10 --param count=1 --run
+```
+
+Anything passed with `--param` is never asked for. With no terminal at all the remaining
+parameters take their declared defaults — the script never blocks.
+
+The modules live in [lzt-flows](lzt-flows/), which also lists what already ships.
 
 ---
 
