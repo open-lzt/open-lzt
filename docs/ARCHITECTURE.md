@@ -157,6 +157,7 @@ Alembic и запускает юниты.
 | mcp | `open-lzt-mcp` | `8770` | через flow/eventus |
 | Postgres | docker `open-lzt-postgres-1` | `55432` | тома: `lztflow`, `lzteventus` |
 | Redis | docker `open-lzt-redis-1` | `56379` | очереди, дедуп, кэш |
+| панель | — (статика в nginx) | `80`/`443` | нет — SPA, всё через `/api/` |
 
 - **Префиксы конфига:** `flow` читает `LZT_FLOW_*`; `eventus` читает `LZT_*`. Верхнеуровневый `.env` —
   единственный источник; `install.sh` рендерит из него по-сервисные `deploy/env/*.env`.
@@ -169,6 +170,15 @@ Alembic и запускает юниты.
   и перезапустит).
 - **Порты только loopback**; доступ через SSH-туннель либо экспозиция flow/eventus по HTTPS через
   опциональную связку nginx + Let's Encrypt (`deploy/setup_tls.sh`).
+- **Панель — не сервис.** `install.sh` собирает её (`pnpm build`) в `projects/flow/frontend/dist`,
+  nginx отдаёт эти файлы с диска и проксирует `/api/` на flow. Единственное новое требование к
+  хосту — `node` + `pnpm`; без них установка проходит, панель просто не собирается.
+- **SSE за прокси.** Блоки потоков (`deploy/nginx/panel.conf`) выключают `proxy_buffering`. С
+  буферизацией nginx держит ответ, пока не заполнится буфер, — а поток событий его не заполняет и
+  не закрывает, поэтому браузер получает 200 и дальше тишину. Проверяется тестом, который поднимает
+  настоящий nginx и требует, чтобы кадр дошёл: `projects/flow/tests/e2e/test_sse_through_nginx.py`.
+
+Как устроена панель — отдельная глава: [panel-architecture.md](panel-architecture.md).
 
 Поверхность эксплуатации: `scripts/healthcheck.sh`, `scripts/smoke.sh`, `update.sh` (rolling-обновление
 с health-гейтом), `deploy/autoupdate.sh` (опционально, выключено по умолчанию — см. `docs/AUTOUPDATE.md`).
