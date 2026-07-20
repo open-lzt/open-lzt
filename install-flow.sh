@@ -29,6 +29,7 @@ MODULE=""
 declare -A CLI_PARAMS=()
 AUTO_RUN=""
 ACCOUNT_ID=""
+CRON_OVERRIDE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -38,6 +39,7 @@ while [[ $# -gt 0 ]]; do
       CLI_PARAMS["${2%%=*}"]="${2#*=}"; shift 2 ;;
     --run)    AUTO_RUN=1; shift ;;
     --account) ACCOUNT_ID="${2:-}"; shift 2 ;;
+    --cron)   CRON_OVERRIDE="${2:-}"; shift 2 ;;
     --no-run) AUTO_RUN=0; shift ;;
     --dir)    OPEN_LZT_DIR="${2:-}"; shift 2 ;;
     -h|--help) sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
@@ -338,6 +340,35 @@ ok "флоу создан: $FLOW_ID"
 curl -s -o /dev/null -X POST "$FLOW/flows/$FLOW_ID/compile" \
   -H "X-API-Key: $FKEY" -H 'Content-Type: application/json' -d '{}' || true
 ok "граф скомпилирован"
+
+# ── расписание ────────────────────────────────────────────────────────────────
+# Модуль может объявить `schedule.cron` — тогда он не одноразовый, а повторяющийся, и запускать
+# его руками не нужно. Триггер вешается только после компиляции: API отказывает нескомпилированному
+# флоу. Расписание берётся из манифеста, но --cron его перекрывает.
+CRON="${CRON_OVERRIDE:-$(python3 - "$MODULE_DIR/module.yaml" <<'PY'
+import sys
+
+try:
+    import yaml
+except ImportError:
+    print(""); raise SystemExit
+data = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+schedule = data.get("schedule") or {}
+print(schedule.get("cron", "") if isinstance(schedule, dict) else "")
+PY
+)}"
+
+if [[ -n "$CRON" ]]; then
+  TRIG_CODE=$(curl -s -o /tmp/_trig.json -w '%{http_code}' -X POST \
+    "$FLOW/flows/$FLOW_ID/triggers/create" \
+    -H "X-API-Key: $FKEY" -H 'Content-Type: application/json' \
+    -d "$(python3 -c 'import json,sys;print(json.dumps({"kind":"schedule","schedule_cron":sys.argv[1]}))' "$CRON")")
+  if [[ "$TRIG_CODE" == "201" ]]; then
+    ok "расписание: $CRON ${c_dim}(флоу будет запускаться сам)${c_reset}"
+  else
+    warn "расписание не создано (HTTP $TRIG_CODE) — флоу придётся запускать вручную"
+  fi
+fi
 
 # ── run ───────────────────────────────────────────────────────────────────────
 if [[ -z "$AUTO_RUN" ]]; then
