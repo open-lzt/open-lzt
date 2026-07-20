@@ -28,6 +28,7 @@ die()  { printf '  %s✗%s %s\n' "$c_red" "$c_reset" "$*" >&2; exit 1; }
 MODULE=""
 declare -A CLI_PARAMS=()
 AUTO_RUN=""
+ACCOUNT_ID=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +37,7 @@ while [[ $# -gt 0 ]]; do
       [[ "${2:-}" == *=* ]] || die "--param expects key=value, got '${2:-}'"
       CLI_PARAMS["${2%%=*}"]="${2#*=}"; shift 2 ;;
     --run)    AUTO_RUN=1; shift ;;
+    --account) ACCOUNT_ID="${2:-}"; shift 2 ;;
     --no-run) AUTO_RUN=0; shift ;;
     --dir)    OPEN_LZT_DIR="${2:-}"; shift 2 ;;
     -h|--help) sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
@@ -265,9 +267,68 @@ print(json.dumps(out, ensure_ascii=False))
 '
 )
 
+# Some nodes cannot run on the tenant's shared token pool. `logic.get_my_lots` lists "my" lots on
+# whichever token it runs under, so unpinned it would page a stranger's account — it refuses instead,
+# and a module using it is uninstallable until an account is named. Autobuy modules do not need this,
+# but pinning them anyway makes a run reproducible: without it the pool answers with whatever
+# account it likes, including leftovers from an earlier install.
+NEEDS_ACCOUNT=$(python3 - "$MODULE_DIR/flow.json" <<'PY'
+import json, sys
+
+spec = json.load(open(sys.argv[1], encoding="utf-8"))
+pinned = [n["type"] for n in spec["nodes"]
+          if n["type"].startswith("market.") or n["type"] == "logic.get_my_lots"]
+print("1" if pinned else "0")
+PY
+)
+
+if [[ "$NEEDS_ACCOUNT" == "1" && -z "$ACCOUNT_ID" ]]; then
+  ACCOUNTS_JSON=$(curl -s "$FLOW/accounts/list" -H "X-API-Key: $FKEY")
+  mapfile -t ACTIVE < <(printf '%s' "$ACCOUNTS_JSON" | python3 -c '
+import json, sys
+rows = json.load(sys.stdin)
+rows = rows if isinstance(rows, list) else rows.get("items", [])
+for row in rows:
+    if row.get("status") == "active":
+        print(row["id"], row.get("label") or "-")
+')
+  if [[ ${#ACTIVE[@]} -eq 0 ]]; then
+    die "флоу работает от имени аккаунта, а их нет — добавьте токен: POST $FLOW/accounts/create"
+  elif [[ ${#ACTIVE[@]} -eq 1 ]]; then
+    ACCOUNT_ID="${ACTIVE[0]%% *}"
+    ok "аккаунт: $ACCOUNT_ID ${c_dim}(единственный активный)${c_reset}"
+  else
+    printf '  Аккаунтов несколько — какой использовать:\n'
+    for i in "${!ACTIVE[@]}"; do printf '   %d) %s\n' "$((i + 1))" "${ACTIVE[$i]}"; done
+    # `-t 0` and not just `-e /dev/tty`: the device exists on every box, attended or not, so
+    # testing it alone would block a piped run on a read nobody can answer.
+    if [[ -t 0 && -e /dev/tty ]]; then
+      read -r -p "  Номер [1]: " pick </dev/tty || pick=""
+      pick="${pick:-1}"
+      ACCOUNT_ID="${ACTIVE[$((pick - 1))]%% *}"
+    else
+      die "аккаунтов несколько и спросить некого — передайте --account <id>"
+    fi
+  fi
+fi
+
+SPEC_FILE="$MODULE_DIR/flow.json"
+if [[ -n "$ACCOUNT_ID" ]]; then
+  SPEC_FILE=$(mktemp)
+  python3 - "$MODULE_DIR/flow.json" "$ACCOUNT_ID" > "$SPEC_FILE" <<'PY'
+import json, sys
+
+spec = json.load(open(sys.argv[1], encoding="utf-8"))
+for node in spec["nodes"]:
+    if node["type"].startswith("market.") or node["type"] == "logic.get_my_lots":
+        node["account_ref"] = sys.argv[2]
+json.dump(spec, sys.stdout, ensure_ascii=False)
+PY
+fi
+
 RESP=$(curl -s -w '\n%{http_code}' -X POST "$FLOW/flows/create" \
   -H "X-API-Key: $FKEY" -H 'Content-Type: application/json' \
-  --data-binary @"$MODULE_DIR/flow.json")
+  --data-binary @"$SPEC_FILE")
 CODE=$(printf '%s' "$RESP" | tail -1)
 BODY=$(printf '%s' "$RESP" | sed '$d')
 [[ "$CODE" == "201" ]] || die "flows/create вернул $CODE: $BODY"
