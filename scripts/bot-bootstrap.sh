@@ -114,7 +114,24 @@ if [[ $DRY_RUN == 0 ]]; then
   sleep 12
   restarts_after="$(systemctl show -p NRestarts --value open-lzt-bot.service 2>/dev/null || echo 0)"
   if systemctl is-active --quiet open-lzt-bot.service && [[ "$restarts_after" == "$restarts_before" ]]; then
-    ok "bot is running — send /start to it in Telegram"
+    # The operator typed a token, not a name — so ask Telegram which bot it belongs to instead of
+    # sending them to look it up. getMe doubles as the only real proof the token is valid.
+    BOT_USER="$(curl -fsS --max-time 8 "https://api.telegram.org/bot${CUR_TOKEN}/getMe" 2>/dev/null \
+      | python3 -c 'import sys,json
+try:
+    d = json.load(sys.stdin)
+    print(d["result"]["username"] if d.get("ok") else "")
+except Exception:
+    print("")' 2>/dev/null || true)"
+    if [[ -n "$BOT_USER" ]]; then
+      # Kept in bot.env so the installer's final block can name it without holding the token.
+      grep -q '^LZT_FLOW_BOT_USERNAME=' "$BOT_ENV" 2>/dev/null \
+        || printf 'LZT_FLOW_BOT_USERNAME=%s\n' "$BOT_USER" >>"$BOT_ENV"
+      ok "bot is running — @${BOT_USER} · https://t.me/${BOT_USER}"
+    else
+      ok "bot is running — send /start to it in Telegram"
+      warn "имя бота получить не удалось (getMe не ответил) — проверьте токен и сеть"
+    fi
   else
     warn "бот не удержался (перезапусков: ${restarts_before} → ${restarts_after})"
     journalctl -u open-lzt-bot -n 20 --no-pager 2>/dev/null | sed 's/^/      /' >&2 || true

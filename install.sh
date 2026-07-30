@@ -758,6 +758,19 @@ else
     "${LETSENCRYPT_EMAIL:-}" "${TLS_MODE:-none}" "${FLOW_PORT}" "$c_reset"
 fi
 printf '%s├%s┤%s\n' "$c_cyan" "$_rule" "$c_reset"
+# The bot's @name comes from getMe, written into bot.env by scripts/bot-bootstrap.sh — the operator
+# typed a token, so this is the one place they can learn which bot it actually is.
+if [[ -f deploy/env/bot.env ]]; then
+  BOT_NAME="$(grep -m1 '^LZT_FLOW_BOT_USERNAME=' deploy/env/bot.env 2>/dev/null | cut -d= -f2-)"
+  if [[ -n "$BOT_NAME" ]]; then
+    printf '%s│%s  %sБот:%s @%s · https://t.me/%s\n' \
+      "$c_cyan" "$c_reset" "$c_green$c_bold" "$c_reset" "$BOT_NAME" "$BOT_NAME"
+  else
+    printf '%s│%s  %sБот:%s запущен, имя получить не удалось (getMe не ответил)\n' \
+      "$c_cyan" "$c_reset" "$c_yellow" "$c_reset"
+  fi
+fi
+printf '%s├%s┤%s\n' "$c_cyan" "$_rule" "$c_reset"
 printf '%s│%s  %sManage:%s update.sh · scripts/healthcheck.sh · scripts/smoke.sh\n' \
   "$c_cyan" "$c_reset" "$c_dim" "$c_reset"
 printf '%s╰%s╯%s\n' "$c_cyan" "$_rule" "$c_reset"
