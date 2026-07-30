@@ -386,8 +386,12 @@ if [[ $DRY_RUN == 0 ]]; then
   [[ -n "$PGUSER_EFF" ]] || PGUSER_EFF="${POSTGRES_USER:-$(grep -m1 '^POSTGRES_USER=' .env 2>/dev/null | cut -d= -f2-)}"
   PGUSER_EFF="${PGUSER_EFF:-lzt}"
   PG_ERR="$(mktemp)"
+  # `-d postgres` is not optional: without it psql connects to a database named after the ROLE, and
+  # `lzt` has no such database (compose creates lztflow), so the probe failed with
+  # `database "lzt" does not exist` — which reads as "lzteventus is missing" and killed a run where
+  # the database had in fact just been created.
   db_exists() {
-    docker compose exec -T postgres psql -U "$PGUSER_EFF" -tAc \
+    docker compose exec -T postgres psql -U "$PGUSER_EFF" -d postgres -tAc \
       "SELECT 1 FROM pg_database WHERE datname='lzteventus'" 2>"$PG_ERR" | grep -qx 1
   }
   # Missing means CREATE IT — that is the installer's job. `CREATE DATABASE` over psql rather than
@@ -424,8 +428,8 @@ if [[ $DRY_RUN == 0 ]]; then
       sed 's/^/      /' "$PG_ERR" >&2
     fi
     info "посмотреть список баз и ролей:"
-    printf '      %sdocker compose exec -T postgres psql -U %s -l%s\n' "$c_dim" "$PGUSER_EFF" "$c_reset"
-    printf '      %sdocker compose exec -T postgres psql -U %s -c "\\\\du"%s\n' "$c_dim" "$PGUSER_EFF" "$c_reset"
+    printf '      %sdocker compose exec -T postgres psql -U %s -d postgres -l%s\n' "$c_dim" "$PGUSER_EFF" "$c_reset"
+    printf '      %sdocker compose exec -T postgres psql -U %s -d postgres -c "\\\\du"%s\n' "$c_dim" "$PGUSER_EFF" "$c_reset"
     rm -f "$PG_ERR"
     die "базы lzteventus нет (роль: $PGUSER_EFF) — миграции eventus пойдут в пустоту"
   fi
