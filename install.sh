@@ -172,12 +172,30 @@ MCP_PORT="${MCP_PORT:-8770}"
 banner
 
 # ---- 0. prerequisites ---------------------------------------------------------------------------
-phase "0/7 Prerequisites (git, curl, docker, uv)"
-need_apt=0
-for bin in git curl; do command -v "$bin" >/dev/null || need_apt=1; done
-if [[ $need_apt == 1 ]]; then
-  run "apt-get update -qq && apt-get install -y -qq git curl ca-certificates"
-fi
+phase "0/7 Зависимости (git, curl, openssl, docker, uv, node, pnpm)"
+
+# Everything this installer shells out to, installed here rather than checked here. A missing
+# tool discovered in phase 4 leaves half a stand behind; the same tool installed in phase 0 costs
+# a package. `apt-get update` runs at most once, however many packages turn out to be missing.
+export DEBIAN_FRONTEND=noninteractive
+_apt_updated=0
+apt_install() {
+  info "пакеты: $*"
+  (( DRY_RUN )) && return 0
+  (( _apt_updated )) || { apt-get update -qq || true; _apt_updated=1; }
+  apt-get install -y -qq "$@" >/dev/null 2>&1 \
+    || die "не удалось поставить: $* (попробуй вручную: apt-get install $*)"
+}
+
+want_apt=()
+for pair in git:git curl:curl openssl:openssl; do
+  command -v "${pair%%:*}" >/dev/null 2>&1 || want_apt+=("${pair##*:}")
+done
+[[ -f /etc/ssl/certs/ca-certificates.crt ]] || want_apt+=(ca-certificates)
+# Not `(( ... )) && apt_install`: with nothing to install the arithmetic returns 1, and under
+# `set -e` that ends the run on the happy path.
+if (( ${#want_apt[@]} )); then apt_install "${want_apt[@]}"; fi
+
 if ! command -v docker >/dev/null; then
   info "docker не найден — ставлю через get.docker.com"
   run "curl -fsSL https://get.docker.com | sh"
@@ -213,13 +231,54 @@ if ! (( DRY_RUN )) && ! docker info >/dev/null 2>&1; then
   docker info >/dev/null 2>&1 || die "демон docker не поднялся — смотри: systemctl status docker"
 fi
 if ! command -v uv >/dev/null && [[ ! -x $UV ]]; then
+  info "ставлю uv"
   run "curl -LsSf https://astral.sh/uv/install.sh | sh"
+fi
+
+# node + pnpm for the panel. These used to be optional — a missing node only warned, and the box
+# came up with a working API and no UI, which reads as a broken install to whoever asked for the
+# panel. The distro package lags the requirement (24.04 still ships node 18), so take NodeSource.
+node_major=0
+command -v node >/dev/null 2>&1 && node_major="$(node -v 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/')"
+if (( node_major < 20 )); then
+  if (( DRY_RUN )); then
+    info "поставил бы node 20 (сейчас: ${node_major:-нет})"
+  else
+    info "ставлю node 20 — панель собирается из исходников"
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1 \
+      || warn "репозиторий NodeSource недоступен — пробую системный пакет"
+    apt-get install -y -qq nodejs >/dev/null 2>&1 || true
+    command -v node >/dev/null 2>&1 || warn "node не установился — панель собрана не будет"
+  fi
+fi
+
+# corepack ships with node and is the supported way to get pnpm; a global npm install would fight
+# the distro package. The download prompt is disabled here for the same reason build_panel does
+# it: unset, it waits for an answer nobody is there to give.
+if ! command -v pnpm >/dev/null 2>&1 && command -v corepack >/dev/null 2>&1; then
+  if (( DRY_RUN )); then
+    info "включил бы corepack и поставил pnpm"
+  else
+    info "ставлю pnpm через corepack"
+    COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack enable >/dev/null 2>&1 </dev/null || true
+    COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare pnpm@latest --activate >/dev/null 2>&1 </dev/null \
+      || warn "pnpm не подготовился — панель может не собраться"
+  fi
 fi
 # Make uv available to the non-root service user (units run as 'open-lzt', not root).
 [[ -x $UV ]] && run "install -m755 $UV /usr/local/bin/uv && install -m755 ${UV%/*}/uvx /usr/local/bin/uvx 2>/dev/null || true"
 # Dedicated unprivileged system user for the services.
 run "id open-lzt >/dev/null 2>&1 || useradd --system --home-dir $INSTALL_DIR --shell /usr/sbin/nologin open-lzt"
-ok "prerequisites present"
+
+if (( DRY_RUN )); then
+  ok "зависимости проверены"
+else
+  # Say what is actually on the box, not that a list of commands returned 0 — the versions are
+  # the first thing anyone asks for when a later phase misbehaves.
+  info "docker $(docker --version 2>/dev/null | sed 's/Docker version //;s/,.*//' || echo '—') · compose $(docker compose version --short 2>/dev/null || echo '—')"
+  info "node $(node -v 2>/dev/null || echo '—') · pnpm $(pnpm --version 2>/dev/null || echo '—') · uv $(uv --version 2>/dev/null | awk '{print $2}' || echo '—')"
+  ok "зависимости на месте"
+fi
 
 # ---- 1. config ----------------------------------------------------------------------------------
 phase "1/7 Config (.env + generated secrets)"
