@@ -16,33 +16,102 @@
 # Assumes Debian/Ubuntu + systemd + root. See README.md for the port map.
 set -euo pipefail
 
-INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# ---- bootstrap: make `bash <(curl -sSL .../get/all.sh)` actually work --------------------------
+# ---- pretty output ------------------------------------------------------------------------------
+c_reset=$'\033[0m'; c_cyan=$'\033[1;36m'; c_green=$'\033[1;32m'; c_yellow=$'\033[1;33m'
+c_red=$'\033[1;31m'; c_dim=$'\033[2m'; c_bold=$'\033[1m'; c_mag=$'\033[1;35m'
+_rule="────────────────────────────────────────────────────────────"
+banner() {
+  # The bootstrap prints this and then exec's this same script from the clone; without a
+  # marker the installer would greet you twice in one run.
+  [[ -n "${OPEN_LZT_BANNER_SHOWN:-}" ]] && return 0
+  export OPEN_LZT_BANNER_SHOWN=1
+  printf '\n%s╭%s╮%s\n'   "$c_cyan" "$_rule" "$c_reset"
+  printf '%s│%s  %s%-56s%s%s│%s\n' "$c_cyan" "$c_reset" "$c_bold" "open-lzt · self-hosted lzt.market stand" "$c_reset" "$c_cyan" "$c_reset"
+  printf '%s│%s  %s%-56s%s%s│%s\n' "$c_cyan" "$c_reset" "$c_dim" "one-command installer" "$c_reset" "$c_cyan" "$c_reset"
+  printf '%s╰%s╯%s\n'   "$c_cyan" "$_rule" "$c_reset"
+}
+phase() { printf '\n%s▸ %s%s\n%s%s%s\n' "$c_mag" "$*" "$c_reset" "$c_dim" "$_rule" "$c_reset"; }
+ok()    { printf '  %s✓%s %s\n' "$c_green" "$c_reset" "$*"; }
+info()  { printf '  %s·%s %s%s%s\n' "$c_cyan" "$c_reset" "$c_dim" "$*" "$c_reset"; }
+warn()  { printf '  %s!%s %s\n' "$c_yellow" "$c_reset" "$*"; }
+die()   { printf '  %s✗ %s%s\n' "$c_red" "$*" "$c_reset" >&2; exit 1; }
+# ---- bootstrap: make `curl -sSL .../get/all.sh | sudo bash -s -- ...` work ----------------------
 # Everything below assumes it is running from inside the checkout ($INSTALL_DIR/projects,
-# deploy/env, git submodules). Piped through process substitution, BASH_SOURCE is /dev/fd/63 and
-# INSTALL_DIR becomes /dev/fd — so the one-liner used to die on the first `cd`. Detect that, get
-# the tree, and hand over to the real script. Idempotent: an existing clone is updated, not
-# re-cloned, which is also what makes re-running the one-liner an in-place update.
+# deploy/env, git submodules). Curled, there is no such directory: piped to stdin BASH_SOURCE is
+# not a path at all, and under `bash <(curl ...)` it is /dev/fd/63 — a pipe, not a file. So the
+# test is "am I a real file inside a real checkout", never "what does dirname say".
+#
+# The documented form is a PIPE, not process substitution. `sudo bash <(curl ...)` cannot work:
+# sudo closes the file descriptors it inherits, so /dev/fd/63 is already gone by the time bash
+# opens it and the run dies with "No such file or directory".
+SELF="${BASH_SOURCE[0]:-}"
+if [[ -n "$SELF" && -f "$SELF" ]]; then
+  INSTALL_DIR="$(cd "$(dirname "$SELF")" && pwd)"
+else
+  INSTALL_DIR=""
+fi
+
 OPEN_LZT_REPO="${OPEN_LZT_REPO:-https://github.com/open-lzt/open-lzt.git}"
 OPEN_LZT_DIR="${OPEN_LZT_DIR:-/opt/open-lzt}"
 
-if [[ ! -f "$INSTALL_DIR/docker-compose.yml" || ! -d "$INSTALL_DIR/projects" ]]; then
-  [[ $EUID -eq 0 ]] || { printf 'run as root: sudo bash <(curl -sSL https://open-lzt.dev/get/all.sh)\n' >&2; exit 1; }
-  command -v git >/dev/null 2>&1 || { apt-get update -qq && apt-get install -y -qq git; }
+if [[ -z "$INSTALL_DIR" || ! -f "$INSTALL_DIR/docker-compose.yml" || ! -d "$INSTALL_DIR/projects" ]]; then
+  # `--dry-run` promises to change nothing, and cloning is a change. With a tree already on disk
+  # there is nothing to write, so hand straight over to it; without one, say what would happen and
+  # stop, rather than quietly writing 8 submodules under the flag that forbids writing.
+  # Asking what the flags are must not require root, and the bootstrap runs before they are parsed.
+  if [[ " $* " == *" --help "* || " $* " == *" -h "* ]]; then
+    printf 'open-lzt · установка стенда одной командой\n\n'
+    printf '  curl -sSL https://open-lzt.dev/get/all.sh | sudo bash -s -- --yes\n\n'
+    printf 'Флаги передаются после --:\n'
+    printf '  --market-mode testnet|prod     режим рынка, по умолчанию testnet\n'
+    printf '  --tls selfsigned|none          сертификат на голом IP\n'
+    printf '  --domain d --email e           публичный HTTPS через Let'"'"'s Encrypt\n'
+    printf '  --bot-token T --bot-admins ID  телеграм-бот администратора\n'
+    printf '  --yes                          ничего не спрашивать\n'
+    printf '  --dry-run                      показать план, ничего не менять\n'
+    exit 0
+  fi
+
+  if [[ " $* " == *" --dry-run "* && -d "$OPEN_LZT_DIR/.git" ]]; then
+    exec bash "$OPEN_LZT_DIR/install.sh" "$@"
+  fi
+  if [[ " $* " == *" --dry-run "* ]]; then
+    banner
+    phase "Пробный запуск · дерева на диске ещё нет"
+    info "склонировал бы $OPEN_LZT_REPO в $OPEN_LZT_DIR"
+    info "затем запустил бы его install.sh с флагами: ${*:-без флагов}"
+    warn "сам установщик пробно прогнать нечем — сначала нужно дерево:"
+    printf '      %sgit clone --recursive %s %s%s\n' "$c_dim" "$OPEN_LZT_REPO" "$OPEN_LZT_DIR" "$c_reset"
+    printf '      %ssudo %s/install.sh --dry-run%s\n' "$c_dim" "$OPEN_LZT_DIR" "$c_reset"
+    exit 0
+  fi
+
+  [[ $EUID -eq 0 ]] || {
+    printf '  %s✗ нужны права root%s\n' "$c_red" "$c_reset" >&2
+    printf '    %scurl -sSL https://open-lzt.dev/get/all.sh | sudo bash -s -- --yes%s\n' "$c_dim" "$c_reset" >&2
+    exit 1
+  }
+
+  banner
+  phase "Загрузка · монорепозиторий open-lzt"
+  command -v git >/dev/null 2>&1 || { info "ставлю git"; apt-get update -qq && apt-get install -y -qq git; }
 
   if [[ -d "$OPEN_LZT_DIR/.git" ]]; then
-    printf '· updating %s\n' "$OPEN_LZT_DIR"
+    info "дерево уже есть — обновляю $OPEN_LZT_DIR"
     git config --global --add safe.directory "$OPEN_LZT_DIR" 2>/dev/null || true
     git -C "$OPEN_LZT_DIR" fetch --prune -q origin
     git -C "$OPEN_LZT_DIR" reset --hard -q origin/HEAD
     git -C "$OPEN_LZT_DIR" submodule update --init --recursive -q
+    ok "обновлено до $(git -C "$OPEN_LZT_DIR" log --oneline -1)"
   else
-    printf '· cloning into %s\n' "$OPEN_LZT_DIR"
+    info "клонирую в $OPEN_LZT_DIR — это 8 субмодулей, займёт минуту"
     mkdir -p "$(dirname "$OPEN_LZT_DIR")"
-    git clone --recursive -q "$OPEN_LZT_REPO" "$OPEN_LZT_DIR"
+    git clone --recursive -q "$OPEN_LZT_REPO" "$OPEN_LZT_DIR" \
+      || die "не удалось склонировать $OPEN_LZT_REPO"
+    ok "склонировано: $(git -C "$OPEN_LZT_DIR" log --oneline -1)"
   fi
 
+  info "передаю управление $OPEN_LZT_DIR/install.sh"
   exec bash "$OPEN_LZT_DIR/install.sh" "$@"
 fi
 
@@ -60,7 +129,10 @@ while [[ $# -gt 0 ]]; do
     --email) ARG_EMAIL="${2:-}"; shift 2 ;;
     --tls) ARG_TLS="${2:-}"; shift 2 ;;
     --market-mode) ARG_MARKET_MODE="${2:-}"; shift 2 ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    -h|--help)
+      if [[ -n "$SELF" && -f "$SELF" ]]; then sed -n '2,16p' "$SELF" | sed 's/^# \{0,1\}//'
+      else printf 'curl -sSL https://open-lzt.dev/get/all.sh | sudo bash -s -- --yes\n'; fi
+      exit 0 ;;
     *) printf 'unknown flag: %s (try --help)\n' "$1" >&2; exit 2 ;;
   esac
 done
@@ -69,21 +141,6 @@ done
 # supplied the answer, `--yes`, or a stdin that is not a terminal all mean no.
 interactive() { [[ $ASSUME_YES == 0 && -t 0 && -e /dev/tty ]]; }
 
-# ---- pretty output ------------------------------------------------------------------------------
-c_reset=$'\033[0m'; c_cyan=$'\033[1;36m'; c_green=$'\033[1;32m'; c_yellow=$'\033[1;33m'
-c_red=$'\033[1;31m'; c_dim=$'\033[2m'; c_bold=$'\033[1m'; c_mag=$'\033[1;35m'
-_rule="────────────────────────────────────────────────────────────"
-banner() {
-  printf '\n%s╭%s╮%s\n'   "$c_cyan" "$_rule" "$c_reset"
-  printf '%s│%s  %s%-56s%s%s│%s\n' "$c_cyan" "$c_reset" "$c_bold" "open-lzt · self-hosted lzt.market stand" "$c_reset" "$c_cyan" "$c_reset"
-  printf '%s│%s  %s%-56s%s%s│%s\n' "$c_cyan" "$c_reset" "$c_dim" "one-command installer" "$c_reset" "$c_cyan" "$c_reset"
-  printf '%s╰%s╯%s\n'   "$c_cyan" "$_rule" "$c_reset"
-}
-phase() { printf '\n%s▸ %s%s\n%s%s%s\n' "$c_mag" "$*" "$c_reset" "$c_dim" "$_rule" "$c_reset"; }
-ok()    { printf '  %s✓%s %s\n' "$c_green" "$c_reset" "$*"; }
-info()  { printf '  %s·%s %s%s%s\n' "$c_cyan" "$c_reset" "$c_dim" "$*" "$c_reset"; }
-warn()  { printf '  %s!%s %s\n' "$c_yellow" "$c_reset" "$*"; }
-die()   { printf '  %s✗ %s%s\n' "$c_red" "$*" "$c_reset" >&2; exit 1; }
 run()   { if [[ $DRY_RUN == 1 ]]; then printf '   %s[dry-run] %s%s\n' "$c_dim" "$*" "$c_reset"; else eval "$@"; fi; }
 set_kv() { local f="$1" k="$2" v="$3"; if grep -q "^${k}=" "$f"; then sed -i "s|^${k}=.*|${k}=${v}|" "$f"; else echo "${k}=${v}" >>"$f"; fi; }
 
