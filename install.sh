@@ -377,10 +377,20 @@ if [[ $DRY_RUN == 0 ]]; then
   done
   # second logical DB for eventus (compose creates POSTGRES_DB=lztflow only); retry over the
   # short window where the socket may still be flapping.
+  #
+  # The role is READ, never assumed: `-U lzt` against a cluster initialised with another
+  # POSTGRES_USER fails with `role "lzt" does not exist`, and with stderr discarded that is
+  # indistinguishable from "the database is missing".
+  PGUSER_EFF="${POSTGRES_USER:-$(grep -m1 '^POSTGRES_USER=' .env 2>/dev/null | cut -d= -f2-)}"
+  PGUSER_EFF="${PGUSER_EFF:-lzt}"
+  PG_ERR="$(mktemp)"
+  db_exists() {
+    docker compose exec -T postgres psql -U "$PGUSER_EFF" -tAc \
+      "SELECT 1 FROM pg_database WHERE datname='lzteventus'" 2>"$PG_ERR" | grep -qx 1
+  }
   for _ in $(seq 1 15); do
-    if docker compose exec -T postgres psql -U "${POSTGRES_USER:-lzt}" -tc \
-         "SELECT 1 FROM pg_database WHERE datname='lzteventus'" 2>/dev/null | grep -q 1; then break; fi
-    docker compose exec -T postgres createdb -U "${POSTGRES_USER:-lzt}" lzteventus 2>/dev/null && break
+    db_exists && break
+    docker compose exec -T postgres createdb -U "$PGUSER_EFF" lzteventus 2>"$PG_ERR" && break
     sleep 2
   done
 fi
@@ -390,9 +400,20 @@ fi
 if [[ $DRY_RUN == 0 ]]; then
   pg_state="$(docker inspect -f '{{.State.Health.Status}}' open-lzt-postgres-1 2>/dev/null || echo none)"
   [[ "$pg_state" == healthy ]] || die "postgres не поднялся (состояние: $pg_state) — docker compose logs postgres"
-  docker compose exec -T postgres psql -U "${POSTGRES_USER:-lzt}" -tc \
-    "SELECT 1 FROM pg_database WHERE datname='lzteventus'" 2>/dev/null | grep -q 1 \
-    || die "базы lzteventus нет — миграции eventus пойдут в пустоту"
+  if ! db_exists; then
+    # Print what postgres actually said. A bare verdict here sent an operator looking for a missing
+    # database when the real answer was a role name, and the tool had already been told.
+    if [[ -s "$PG_ERR" ]]; then
+      warn "postgres ответил:"
+      sed 's/^/      /' "$PG_ERR" >&2
+    fi
+    info "посмотреть список баз и ролей:"
+    printf '      %sdocker compose exec -T postgres psql -U %s -l%s\n' "$c_dim" "$PGUSER_EFF" "$c_reset"
+    printf '      %sdocker compose exec -T postgres psql -U %s -c "\\\\du"%s\n' "$c_dim" "$PGUSER_EFF" "$c_reset"
+    rm -f "$PG_ERR"
+    die "базы lzteventus нет (роль: $PGUSER_EFF) — миграции eventus пойдут в пустоту"
+  fi
+  rm -f "$PG_ERR"
 fi
 ok "postgres + redis up (DBs: lztflow, lzteventus)"
 
