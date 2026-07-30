@@ -253,14 +253,18 @@ fi
 # node + pnpm for the panel. These used to be optional — a missing node only warned, and the box
 # came up with a working API and no UI, which reads as a broken install to whoever asked for the
 # panel. The distro package lags the requirement (24.04 still ships node 18), so take NodeSource.
+#
+# Node 22, not 20: current pnpm needs >= 22.13 and dies on `node:sqlite` under 20. Nailing the
+# runtime to an old major while the package manager floats to `@latest` IS the mismatch.
+NODE_MAJOR="${NODE_MAJOR:-22}"
 node_major=0
 command -v node >/dev/null 2>&1 && node_major="$(node -v 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/')"
-if (( node_major < 20 )); then
+if (( node_major < NODE_MAJOR )); then
   if (( DRY_RUN )); then
-    info "поставил бы node 20 (сейчас: ${node_major:-нет})"
+    info "поставил бы node $NODE_MAJOR (сейчас: ${node_major:-нет})"
   else
-    info "ставлю node 20 — панель собирается из исходников"
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1 \
+    info "ставлю node $NODE_MAJOR — панель собирается из исходников"
+    curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - >/dev/null 2>&1 \
       || warn "репозиторий NodeSource недоступен — пробую системный пакет"
     apt-get install -y -qq nodejs >/dev/null 2>&1 || true
     command -v node >/dev/null 2>&1 || warn "node не установился — панель собрана не будет"
@@ -276,8 +280,15 @@ if ! command -v pnpm >/dev/null 2>&1 && command -v corepack >/dev/null 2>&1; the
   else
     info "ставлю pnpm через corepack"
     COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack enable >/dev/null 2>&1 </dev/null || true
-    COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare pnpm@latest --activate >/dev/null 2>&1 </dev/null \
-      || warn "pnpm не подготовился — панель может не собраться"
+    # No `pnpm@latest`. corepack reads `packageManager` from the project's package.json and fetches
+    # exactly that version — the project's own choice, already known to work with its lockfile.
+    # `@latest` overrode it with whatever shipped today, which is how a pnpm requiring node >= 22.13
+    # landed on a node 20 box and died on `node:sqlite`. Choose only when the project pins nothing,
+    # and then a major that still supports the node we installed.
+    if ! command -v pnpm >/dev/null 2>&1; then
+      COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack prepare pnpm@9 --activate >/dev/null 2>&1 </dev/null \
+        || warn "pnpm не подготовился — панель может не собраться"
+    fi
   fi
 fi
 # Make uv available to the non-root service user (units run as 'open-lzt', not root).
@@ -488,6 +499,7 @@ ok "dependencies installed"
 # this project's trust story, and a prebuilt bundle would be one more thing to verify. The cost is a
 # node/pnpm prerequisite on what used to be a Python-only host — stated in the README so it is not
 # discovered here.
+PANEL_BUILT=0
 build_panel() {
   command -v node >/dev/null 2>&1 || { warn "node not found — panel not built (API still works)"; return 0; }
   # On a stock Debian/Ubuntu node package, `pnpm` on PATH is a corepack SHIM: it asks
@@ -507,6 +519,7 @@ build_panel() {
   ( cd projects/flow/frontend \
       && "$pnpm_bin" install --frozen-lockfile --prefer-offline </dev/null \
       && "$pnpm_bin" run build </dev/null ) || { warn "panel build failed — the API is unaffected"; return 0; }
+  PANEL_BUILT=1
   ok "panel built"
 }
 
@@ -651,8 +664,13 @@ PANEL_SCHEME=https; [[ "${TLS_MODE:-none}" == "none" ]] && PANEL_SCHEME=http
 # Only claim an address that answers. Printing "Panel: https://<ip>/" after nginx refused the
 # config sent an operator to a refused connection with the installer still reporting success.
 if (( PANEL_OK )) && curl -skS -o /dev/null --max-time 5 "$PANEL_SCHEME://127.0.0.1/" 2>/dev/null; then
-  printf '%s│%s  %sПанель:%s %s://%s/\n' \
-    "$c_cyan" "$c_reset" "$c_green$c_bold" "$c_reset" "$PANEL_SCHEME" "${PANEL_HOST:-this-host}"
+  printf '%s│%s  %s%s:%s %s://%s/\n' \
+    "$c_cyan" "$c_reset" "$c_green$c_bold" "$( (( PANEL_BUILT )) && echo "Панель" || echo "API" )" \
+    "$c_reset" "$PANEL_SCHEME" "${PANEL_HOST:-this-host}"
+  # Calling it "Панель" over a root that serves the API is the same lie as naming an address that
+  # does not answer — the panel simply was not built, and it should be said here, not guessed.
+  (( PANEL_BUILT )) || printf '%s│%s  %sпанель не собрана — по / отдаётся API (причина в фазе 4b)%s\n' \
+    "$c_cyan" "$c_reset" "$c_yellow" "$c_reset"
   [[ "${TLS_MODE:-none}" == "selfsigned" ]] \
     && printf '%s│%s  %sсертификат самоподписанный — браузер предупредит один раз%s\n' \
          "$c_cyan" "$c_reset" "$c_dim" "$c_reset"
