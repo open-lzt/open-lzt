@@ -24,6 +24,21 @@ die(){ printf '  %s✗ %s%s\n' "$c_red" "$*" "$c_reset" >&2; exit 1; }
 
 command -v apt-get >/dev/null || die "setup_tls needs apt (Debian/Ubuntu)"
 
+# A fresh VPS is still running unattended-upgrades when the installer reaches this phase, and
+# it holds the dpkg lock. This step used to be the one that lost that race: every service was
+# up, and the panel was the single thing missing. Wait for the lock instead of failing.
+export DEBIAN_FRONTEND=noninteractive
+# `apt-get` fails instantly when the dpkg lock is held (unlike `apt`, which waits 120s), and a
+# fresh VPS runs unattended-upgrades for its first minutes. A wrapper would only cover OUR
+# calls — get.docker.com and the NodeSource script run their own apt and are just as exposed.
+# One config drop-in covers every apt in the run, ours and theirs.
+apt_wait_setup() {
+  local f=/etc/apt/apt.conf.d/99-open-lzt-lock-timeout
+  [[ -w /etc/apt/apt.conf.d ]] || return 0
+  echo "DPkg::Lock::Timeout \"${APT_WAIT:-600}\";" > "$f" 2>/dev/null || true
+}
+apt_wait_setup
+
 apt-get update -qq
 # gettext-base carries envsubst, which renders deploy/nginx/panel.conf.
 apt-get install -y -qq nginx gettext-base

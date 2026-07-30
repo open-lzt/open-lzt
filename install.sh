@@ -179,6 +179,20 @@ phase "0/7 Зависимости (git, curl, openssl, docker, uv, node, pnpm)"
 # a package. `apt-get update` runs at most once, however many packages turn out to be missing.
 export DEBIAN_FRONTEND=noninteractive
 _apt_updated=0
+
+# A fresh VPS runs unattended-upgrades/apt-daily in its first minutes and holds the dpkg lock.
+# Without a wait, whichever phase lands in that window dies on "Could not get lock" — it took
+# out nginx setup on a box where everything else had already installed fine. Waiting IS the
+# fix: the background job finishes on its own.
+# `apt-get` fails instantly when the dpkg lock is held (unlike `apt`, which waits 120s), and a
+# fresh VPS runs unattended-upgrades for its first minutes. A wrapper would only cover OUR
+# calls — get.docker.com and the NodeSource script run their own apt and are just as exposed.
+# One config drop-in covers every apt in the run, ours and theirs.
+apt_wait_setup() {
+  local f=/etc/apt/apt.conf.d/99-open-lzt-lock-timeout
+  [[ -w /etc/apt/apt.conf.d ]] || return 0
+  echo "DPkg::Lock::Timeout \"${APT_WAIT:-600}\";" > "$f" 2>/dev/null || true
+}
 apt_install() {
   info "пакеты: $*"
   (( DRY_RUN )) && return 0
@@ -187,6 +201,7 @@ apt_install() {
     || die "не удалось поставить: $* (попробуй вручную: apt-get install $*)"
 }
 
+apt_wait_setup
 want_apt=()
 for pair in git:git curl:curl openssl:openssl; do
   command -v "${pair%%:*}" >/dev/null 2>&1 || want_apt+=("${pair##*:}")
