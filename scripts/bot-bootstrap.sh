@@ -75,10 +75,15 @@ FLOW_PORT="$(get_kv "$ENV_FILE" FLOW_PORT)"; FLOW_PORT="${FLOW_PORT:-8000}"
 say "rendering $BOT_ENV"
 run "install -d -m700 '$INSTALL_DIR/deploy/env'"
 if [[ $DRY_RUN == 0 ]]; then
+  # pydantic-settings JSON-decodes any field whose type is complex, and admin_ids is a frozenset.
+  # A bare `1744691089` therefore arrives as an int and fails with `Input should be a valid
+  # frozenset` — so ONE admin crash-looped the bot while a comma-separated pair would have parsed.
+  # Emit a JSON array; the value is validated as digits-and-commas above, so wrapping it suffices.
+  ADMINS_JSON="[$(printf '%s' "$CUR_ADMINS" | tr -d ' ')]"
   cat >"$BOT_ENV" <<EOF
 LZT_FLOW_BOT_ENABLED=1
 LZT_FLOW_BOT_TOKEN=${CUR_TOKEN}
-LZT_FLOW_BOT_ADMIN_IDS=${CUR_ADMINS}
+LZT_FLOW_BOT_ADMIN_IDS=${ADMINS_JSON}
 LZT_FLOW_BOT_API_BASE_URL=http://127.0.0.1:${FLOW_PORT}
 LZT_FLOW_BOT_API_KEY=${FLOW_API_KEY}
 EOF
@@ -95,13 +100,24 @@ fi
 say "installing unit"
 run "install -C -m644 '$UNIT_SRC' '$UNIT_DST'"
 run "systemctl daemon-reload"
-run "systemctl enable --now open-lzt-bot.service"
+run "systemctl enable open-lzt-bot.service"
+# `enable --now` only STARTS an inactive unit — a bot already running keeps the previous bot.env,
+# so a re-run that changed the token or the admins would appear to succeed and change nothing.
+run "systemctl restart open-lzt-bot.service"
 
 if [[ $DRY_RUN == 0 ]]; then
-  sleep 2
-  if systemctl is-active --quiet open-lzt-bot.service; then
+  # `is-active` two seconds in is not proof the bot started: this unit restarts on failure, and the
+  # crash comes ~7s in (interpreter boot, then settings validation), so the early probe caught the
+  # first, doomed attempt and reported success while the service crash-looped. Watch the restart
+  # counter instead of a single instant.
+  restarts_before="$(systemctl show -p NRestarts --value open-lzt-bot.service 2>/dev/null || echo 0)"
+  sleep 12
+  restarts_after="$(systemctl show -p NRestarts --value open-lzt-bot.service 2>/dev/null || echo 0)"
+  if systemctl is-active --quiet open-lzt-bot.service && [[ "$restarts_after" == "$restarts_before" ]]; then
     ok "bot is running — send /start to it in Telegram"
   else
+    warn "бот не удержался (перезапусков: ${restarts_before} → ${restarts_after})"
+    journalctl -u open-lzt-bot -n 20 --no-pager 2>/dev/null | sed 's/^/      /' >&2 || true
     die "bot failed to start: journalctl -u open-lzt-bot -n 50"
   fi
 fi
