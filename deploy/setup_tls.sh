@@ -39,6 +39,33 @@ apt_wait_setup() {
 }
 apt_wait_setup
 
+# Who is listening on a port, named. The previous one-liner (`ss | grep -E ':(80|443)\s'`) matched
+# nothing on the run that needed it most — the column is `0.0.0.0:80` followed by more fields, and
+# the anchor never lined up. Match the address column itself and print the process.
+port_holders() {
+  local p="$1" out
+  out="$(ss -ltnp 2>/dev/null | awk -v pat=":${p}\$" '$4 ~ pat {print $4"  "$NF}')"
+  [[ -n "$out" ]] || out="$(command -v fuser >/dev/null && fuser -n tcp "$p" 2>/dev/null || true)"
+  [[ -n "$out" ]] && printf '      порт %s занят: %s\n' "$p" "$(printf '%s' "$out" | tr '\n' ' ')"
+  return 0
+}
+
+# nginx cannot bind a port someone else already holds, and `nginx -t` never notices — a stock
+# apache2 on the image is the usual culprit. Say so BEFORE writing a config and failing to start.
+for _p in 80 443; do
+  _busy="$(ss -ltnp 2>/dev/null | awk -v pat=":${_p}\$" '$4 ~ pat {print $NF}' | grep -v nginx || true)"
+  if [[ -n "$_busy" ]]; then
+    warn "порт ${_p} уже занят не-nginx процессом:"
+    port_holders "$_p" >&2
+    case "$_busy" in
+      *apache2*) warn "освободить: systemctl disable --now apache2" ;;
+      *caddy*)   warn "освободить: systemctl disable --now caddy" ;;
+      *httpd*)   warn "освободить: systemctl disable --now httpd" ;;
+      *)         warn "освободить порт и повторить: bash deploy/setup_tls.sh …" ;;
+    esac
+  fi
+done
+
 apt-get update -qq
 # gettext-base carries envsubst, which renders deploy/nginx/panel.conf.
 apt-get install -y -qq nginx gettext-base
@@ -112,7 +139,7 @@ enable_site() {
     # masked unit fails only here.
     if ! systemctl reload nginx >/dev/null 2>&1 && ! systemctl restart nginx >/dev/null 2>&1; then
       systemctl status nginx --no-pager -n 15 2>&1 | sed 's/^/      /' >&2
-      ss -tlnp 2>/dev/null | grep -E ':(80|443)\s' | sed 's/^/      /' >&2 || true
+      port_holders 80 >&2; port_holders 443 >&2
       die "nginx не запустился (конфиг валиден) — вывод systemctl выше"
     fi
   else
