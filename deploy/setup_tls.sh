@@ -83,7 +83,15 @@ enable_site() {
   rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/open-lzt-panel
   local test_output
   if test_output="$(nginx -t 2>&1)"; then
-    systemctl reload nginx >/dev/null 2>&1 || systemctl restart nginx >/dev/null 2>&1
+    # Both branches failing used to be the LAST command of this function, so `set -e` killed the
+    # script with no message at all — the operator saw a verdict and no cause. nginx -t passing
+    # says nothing about starting: the bind happens at runtime, so a port already taken or a
+    # masked unit fails only here.
+    if ! systemctl reload nginx >/dev/null 2>&1 && ! systemctl restart nginx >/dev/null 2>&1; then
+      systemctl status nginx --no-pager -n 15 2>&1 | sed 's/^/      /' >&2
+      ss -tlnp 2>/dev/null | grep -E ':(80|443)\s' | sed 's/^/      /' >&2 || true
+      die "nginx не запустился (конфиг валиден) — вывод systemctl выше"
+    fi
   else
     rm -f /etc/nginx/sites-enabled/open-lzt
     # Print what nginx actually said. Swallowing it left the operator with a refused connection
@@ -93,10 +101,19 @@ enable_site() {
     die "nginx отверг конфиг: сайт не включён, панель не раздаётся"
   fi
 }
+# nginx -t does not open sockets, so a `listen [::]:80` on a host without IPv6 passes the config
+# test and then fails the actual start with "Address family not supported by protocol" — a valid
+# config that will not run. Emit the v6 lines only where there is a v6 stack.
+listen6() {  # $1 = "80 default_server" | "443 ssl default_server"
+  [[ -f /proc/net/if_inet6 ]] || return 0
+  local port="${1%% *}" rest="${1#* }"
+  [[ "$rest" == "$1" ]] && rest=""
+  echo "    listen [::]:${port}${rest:+ $rest};"
+}
 host_ip() { curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}'; }
 
 if [[ "$MODE" == "none" ]]; then
-  { echo "server {"; echo "    listen 80 default_server;"; echo "    listen [::]:80 default_server;";
+  { echo "server {"; echo "    listen 80 default_server;"; listen6 "80 default_server";
     echo "    server_name _;"; proxy_block; echo "}"; } > "$SITE"
   enable_site
   ok "panel served at http://$(host_ip)/ (no TLS — pass --tls selfsigned for HTTPS)"
@@ -134,11 +151,11 @@ elif [[ "$MODE" == "selfsigned" ]]; then
     chmod 600 "$TLS_DIR/key.pem"
     ok "generated self-signed cert for ${CN}"
   fi
-  { echo "server {"; echo "    listen 80 default_server;"; echo "    listen [::]:80 default_server;";
+  { echo "server {"; echo "    listen 80 default_server;"; listen6 "80 default_server";
     echo "    server_name ${CN};"; echo "    return 301 https://\$host\$request_uri;"; echo "}";
     echo "server {";
     echo "    listen 443 ssl default_server;";
-    echo "    listen [::]:443 ssl default_server;";
+    listen6 "443 ssl default_server";
     echo "    server_name ${CN};";
     echo "    ssl_certificate     ${TLS_DIR}/cert.pem;";
     echo "    ssl_certificate_key ${TLS_DIR}/key.pem;";

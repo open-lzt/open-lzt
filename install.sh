@@ -627,7 +627,11 @@ fi
 
 # ---- summary box --------------------------------------------------------------------------------
 svc_line() { # name port
-  local state; state=$(systemctl is-active "open-lzt-$1" 2>/dev/null || echo unknown)
+  # `is-active` exits non-zero for every state that is not "active" — including "activating",
+  # where it still PRINTS the state. The `|| echo unknown` then appended a second line and the
+  # box grew a stray "unknown" under the service. Take the printed value when there is one.
+  local state; state=$(systemctl is-active "open-lzt-$1" 2>/dev/null | head -1)
+  [[ -n "$state" ]] || state=unknown
   local dot="$c_green●$c_reset"; [[ "$state" == active ]] || dot="$c_red●$c_reset"
   printf '%s│%s  %s %-13s %sport %-6s%s%s%s\n' \
     "$c_cyan" "$c_reset" "$dot" "$1" "$c_bold" "$2" "$c_reset" "$c_dim" "$state$c_reset"
