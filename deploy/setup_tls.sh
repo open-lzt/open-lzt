@@ -15,8 +15,11 @@ set -euo pipefail
 DOMAIN="${1:-}"; EMAIL="${2:-}"; MODE="${3:-none}"; FLOW_PORT="${4:-8000}"
 EVENTUS_PORT="${EVENTUS_PORT:-27543}"
 c_green=$'\033[1;32m'; c_yellow=$'\033[1;33m'; c_red=$'\033[1;31m'; c_reset=$'\033[0m'
-ok(){ printf '  %s✓%s %s\n' "$c_green" "$c_reset" "$*"; }
-warn(){ printf '  %s!%s %s\n' "$c_yellow" "$c_reset" "$*"; }
+# Diagnostics go to stderr, never stdout. `proxy_block` runs inside `{ ... } > "$SITE"`, so a
+# helper printing to stdout writes its own warning INTO the nginx config — which is exactly how
+# "panel not built" became "nginx rejected the generated site" and a refused connection.
+ok(){ printf '  %s✓%s %s\n' "$c_green" "$c_reset" "$*" >&2; }
+warn(){ printf '  %s!%s %s\n' "$c_yellow" "$c_reset" "$*" >&2; }
 die(){ printf '  %s✗ %s%s\n' "$c_red" "$*" "$c_reset" >&2; exit 1; }
 
 command -v apt-get >/dev/null || die "setup_tls needs apt (Debian/Ubuntu)"
@@ -63,11 +66,16 @@ NGINX
 enable_site() {
   ln -sf "$SITE" /etc/nginx/sites-enabled/open-lzt
   rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/open-lzt-panel
-  if nginx -t >/dev/null 2>&1; then
+  local test_output
+  if test_output="$(nginx -t 2>&1)"; then
     systemctl reload nginx >/dev/null 2>&1 || systemctl restart nginx >/dev/null 2>&1
   else
     rm -f /etc/nginx/sites-enabled/open-lzt
-    die "nginx rejected the generated site — left untouched, panel not served"
+    # Print what nginx actually said. Swallowing it left the operator with a refused connection
+    # and nothing to act on.
+    printf '%s\n' "$test_output" >&2
+    warn "конфиг сохранён в $SITE — строка с ошибкой названа выше"
+    die "nginx отверг конфиг: сайт не включён, панель не раздаётся"
   fi
 }
 host_ip() { curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}'; }

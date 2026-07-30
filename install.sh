@@ -599,9 +599,13 @@ if [[ $DRY_RUN == 0 ]]; then
   set_kv .env DOMAIN "${DOMAIN:-}"; set_kv .env TLS_MODE "${TLS_MODE:-none}"
   set_kv .env LETSENCRYPT_EMAIL "${LETSENCRYPT_EMAIL:-}"
 fi
+PANEL_OK=0
 if [[ $DRY_RUN == 0 ]]; then
-  EVENTUS_PORT="${EVENTUS_PORT}" bash deploy/setup_tls.sh "${DOMAIN:-}" "${LETSENCRYPT_EMAIL:-}" "${TLS_MODE:-none}" "${FLOW_PORT}" \
-    || warn "nginx/TLS setup had issues — see output above"
+  if EVENTUS_PORT="${EVENTUS_PORT}" bash deploy/setup_tls.sh "${DOMAIN:-}" "${LETSENCRYPT_EMAIL:-}" "${TLS_MODE:-none}" "${FLOW_PORT}"; then
+    PANEL_OK=1
+  else
+    warn "не удалось настроить nginx — панель не раздаётся (причина выше)"
+  fi
 else
   info "dry-run: skipping nginx/TLS setup"
 fi
@@ -624,12 +628,23 @@ svc_line flow-worker "-"
 svc_line mcp         "${MCP_PORT}"
 printf '%s├%s┤%s\n' "$c_cyan" "$_rule" "$c_reset"
 PANEL_HOST="${DOMAIN:-$(hostname -I 2>/dev/null | awk '{print $1}')}"
-if [[ "${TLS_MODE:-none}" == "none" ]]; then
-  printf '%s│%s  %sPanel:%s http://%s/\n' "$c_cyan" "$c_reset" "$c_green$c_bold" "$c_reset" "${PANEL_HOST:-this-host}"
+PANEL_SCHEME=https; [[ "${TLS_MODE:-none}" == "none" ]] && PANEL_SCHEME=http
+# Only claim an address that answers. Printing "Panel: https://<ip>/" after nginx refused the
+# config sent an operator to a refused connection with the installer still reporting success.
+if (( PANEL_OK )) && curl -skS -o /dev/null --max-time 5 "$PANEL_SCHEME://127.0.0.1/" 2>/dev/null; then
+  printf '%s│%s  %sПанель:%s %s://%s/\n' \
+    "$c_cyan" "$c_reset" "$c_green$c_bold" "$c_reset" "$PANEL_SCHEME" "${PANEL_HOST:-this-host}"
+  [[ "${TLS_MODE:-none}" == "selfsigned" ]] \
+    && printf '%s│%s  %sсертификат самоподписанный — браузер предупредит один раз%s\n' \
+         "$c_cyan" "$c_reset" "$c_dim" "$c_reset"
+elif (( DRY_RUN )); then
+  printf '%s│%s  %sПанель:%s %s://%s/\n' \
+    "$c_cyan" "$c_reset" "$c_green$c_bold" "$c_reset" "$PANEL_SCHEME" "${PANEL_HOST:-this-host}"
 else
-  printf '%s│%s  %sPanel:%s https://%s/\n' "$c_cyan" "$c_reset" "$c_green$c_bold" "$c_reset" "${PANEL_HOST:-this-host}"
-  [[ "$TLS_MODE" == "selfsigned" ]] \
-    && printf '%s│%s  %sself-signed cert — the browser will warn once, then remember%s\n' "$c_cyan" "$c_reset" "$c_dim" "$c_reset"
+  printf '%s│%s  %sПанель не поднялась%s — API работает на 127.0.0.1:%s\n' \
+    "$c_cyan" "$c_reset" "$c_red$c_bold" "$c_reset" "${FLOW_PORT}"
+  printf '%s│%s  %sчинить: bash deploy/setup_tls.sh "" "" %s %s%s\n' \
+    "$c_cyan" "$c_reset" "$c_dim" "${TLS_MODE:-none}" "${FLOW_PORT}" "$c_reset"
 fi
 printf '%s├%s┤%s\n' "$c_cyan" "$_rule" "$c_reset"
 printf '%s│%s  %sManage:%s update.sh · scripts/healthcheck.sh · scripts/smoke.sh\n' \
