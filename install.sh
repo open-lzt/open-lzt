@@ -378,19 +378,30 @@ if [[ $DRY_RUN == 0 ]]; then
   # second logical DB for eventus (compose creates POSTGRES_DB=lztflow only); retry over the
   # short window where the socket may still be flapping.
   #
-  # The role is READ, never assumed: `-U lzt` against a cluster initialised with another
-  # POSTGRES_USER fails with `role "lzt" does not exist`, and with stderr discarded that is
-  # indistinguishable from "the database is missing".
-  PGUSER_EFF="${POSTGRES_USER:-$(grep -m1 '^POSTGRES_USER=' .env 2>/dev/null | cut -d= -f2-)}"
+  # The role is ASKED OF THE CONTAINER, not assumed. `-U lzt` against a cluster initialised with a
+  # different POSTGRES_USER fails with `role "lzt" does not exist` — which, with stderr discarded,
+  # is indistinguishable from "the database is missing". The running container knows its own
+  # superuser; .env is the fallback, the literal is the last resort.
+  PGUSER_EFF="$(docker compose exec -T postgres printenv POSTGRES_USER 2>/dev/null | tr -d '\r\n')"
+  [[ -n "$PGUSER_EFF" ]] || PGUSER_EFF="${POSTGRES_USER:-$(grep -m1 '^POSTGRES_USER=' .env 2>/dev/null | cut -d= -f2-)}"
   PGUSER_EFF="${PGUSER_EFF:-lzt}"
   PG_ERR="$(mktemp)"
   db_exists() {
     docker compose exec -T postgres psql -U "$PGUSER_EFF" -tAc \
       "SELECT 1 FROM pg_database WHERE datname='lzteventus'" 2>"$PG_ERR" | grep -qx 1
   }
+  # Missing means CREATE IT — that is the installer's job. `CREATE DATABASE` over psql rather than
+  # the createdb binary: it works regardless of which default database the image gives the role,
+  # and "already exists" is success, not an error.
+  db_create() {
+    docker compose exec -T postgres psql -U "$PGUSER_EFF" -d postgres \
+      -c 'CREATE DATABASE lzteventus' >/dev/null 2>"$PG_ERR" && return 0
+    grep -q 'already exists' "$PG_ERR" && return 0
+    return 1
+  }
   for _ in $(seq 1 15); do
     db_exists && break
-    docker compose exec -T postgres createdb -U "$PGUSER_EFF" lzteventus 2>"$PG_ERR" && break
+    db_create && break
     sleep 2
   done
 fi
@@ -401,7 +412,12 @@ if [[ $DRY_RUN == 0 ]]; then
   pg_state="$(docker inspect -f '{{.State.Health.Status}}' open-lzt-postgres-1 2>/dev/null || echo none)"
   [[ "$pg_state" == healthy ]] || die "postgres не поднялся (состояние: $pg_state) — docker compose logs postgres"
   if ! db_exists; then
-    # Print what postgres actually said. A bare verdict here sent an operator looking for a missing
+    # One last attempt before giving up — the retry window may simply have been shorter than a
+    # first-boot initdb on a slow disk.
+    db_create && sleep 1
+  fi
+  if ! db_exists; then
+    # Print what postgres actually said. A bare verdict sent an operator looking for a missing
     # database when the real answer was a role name, and the tool had already been told.
     if [[ -s "$PG_ERR" ]]; then
       warn "postgres ответил:"
