@@ -17,6 +17,35 @@
 set -euo pipefail
 
 INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ---- bootstrap: make `bash <(curl -sSL .../get/all.sh)` actually work --------------------------
+# Everything below assumes it is running from inside the checkout ($INSTALL_DIR/projects,
+# deploy/env, git submodules). Piped through process substitution, BASH_SOURCE is /dev/fd/63 and
+# INSTALL_DIR becomes /dev/fd — so the one-liner used to die on the first `cd`. Detect that, get
+# the tree, and hand over to the real script. Idempotent: an existing clone is updated, not
+# re-cloned, which is also what makes re-running the one-liner an in-place update.
+OPEN_LZT_REPO="${OPEN_LZT_REPO:-https://github.com/open-lzt/open-lzt.git}"
+OPEN_LZT_DIR="${OPEN_LZT_DIR:-/opt/open-lzt}"
+
+if [[ ! -f "$INSTALL_DIR/docker-compose.yml" || ! -d "$INSTALL_DIR/projects" ]]; then
+  [[ $EUID -eq 0 ]] || { printf 'run as root: sudo bash <(curl -sSL https://open-lzt.dev/get/all.sh)\n' >&2; exit 1; }
+  command -v git >/dev/null 2>&1 || { apt-get update -qq && apt-get install -y -qq git; }
+
+  if [[ -d "$OPEN_LZT_DIR/.git" ]]; then
+    printf '· updating %s\n' "$OPEN_LZT_DIR"
+    git config --global --add safe.directory "$OPEN_LZT_DIR" 2>/dev/null || true
+    git -C "$OPEN_LZT_DIR" fetch --prune -q origin
+    git -C "$OPEN_LZT_DIR" reset --hard -q origin/HEAD
+    git -C "$OPEN_LZT_DIR" submodule update --init --recursive -q
+  else
+    printf '· cloning into %s\n' "$OPEN_LZT_DIR"
+    mkdir -p "$(dirname "$OPEN_LZT_DIR")"
+    git clone --recursive -q "$OPEN_LZT_REPO" "$OPEN_LZT_DIR"
+  fi
+
+  exec bash "$OPEN_LZT_DIR/install.sh" "$@"
+fi
+
 DRY_RUN=0
 ASSUME_YES=0
 ARG_BOT_TOKEN=""; ARG_BOT_ADMINS=""; ARG_DOMAIN=""; ARG_EMAIL=""; ARG_TLS=""; ARG_MARKET_MODE=""
