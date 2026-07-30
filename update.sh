@@ -1,12 +1,28 @@
 #!/usr/bin/env bash
 # Rolling update of a running open-lzt stand: pull latest, re-sync deps, migrate, restart services.
-# Health-gated: if a service fails to come healthy, the previous systemd unit state is left running
-# for inspection. Idempotent; safe to re-run.
+# Health-gated: the commit in place before the update is recorded, and if the stand does not come
+# back healthy the tree is restored to it and the services restarted on the old code. Idempotent.
 #
 #   sudo ./update.sh
+#   curl -sSL https://open-lzt.dev/get/update.sh | sudo bash
 set -euo pipefail
 
-INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Published at /get/update.sh, so it is usually piped from curl. Piped, BASH_SOURCE is not a path
+# and dirname resolved to the caller's cwd — every step below then ran against the wrong tree.
+# Ask whether we are a real file inside a real checkout, never what dirname says.
+_SELF="${BASH_SOURCE[0]:-}"
+if [[ -n "$_SELF" && -f "$_SELF" ]]; then
+  INSTALL_DIR="$(cd "$(dirname "$_SELF")" && pwd)"
+else
+  INSTALL_DIR=""
+fi
+if [[ -z "$INSTALL_DIR" || ! -f "$INSTALL_DIR/docker-compose.yml" ]]; then
+  INSTALL_DIR="${OPEN_LZT_DIR:-/opt/open-lzt}"
+fi
+[[ -f "$INSTALL_DIR/docker-compose.yml" ]] \
+  || { printf 'стенда нет в %s — укажите OPEN_LZT_DIR=/путь\n' "$INSTALL_DIR" >&2; exit 1; }
+[[ $EUID -eq 0 ]] \
+  || { printf 'нужен root: curl -sSL https://open-lzt.dev/get/update.sh | sudo bash\n' >&2; exit 1; }
 cd "$INSTALL_DIR"
 UV=/root/.local/bin/uv
 export PATH="/root/.local/bin:$PATH"
@@ -22,7 +38,11 @@ if [[ -d .git ]]; then
   git config --global --get-all safe.directory 2>/dev/null | grep -qx "$INSTALL_DIR" \
     || git config --global --add safe.directory "$INSTALL_DIR"
   for d in "$INSTALL_DIR"/projects/*/; do git config --global --add safe.directory "${d%/}" 2>/dev/null || true; done
-  git pull --ff-only || warn "monorepo pull skipped (diverged?)"
+  PREV_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
+  # A skipped pull used to warn and continue. With the services already healthy the run then
+  # printed "update complete — all healthy" over code that never moved.
+  git pull --ff-only \
+    || { warn "pull не прошёл (ветка разошлась?) — обновление не выполнено"; exit 1; }
   # Advance each project submodule to the latest commit of its tracked branch (.gitmodules),
   # not just the pinned pointer — this is what actually pulls new project code onto the stand.
   git submodule update --init --remote --recursive || warn "submodule update had issues"
@@ -112,6 +132,24 @@ for _ in $(seq 1 20); do bash scripts/healthcheck.sh >/dev/null 2>&1 && break; s
 if bash scripts/healthcheck.sh; then
   ok "update complete — all healthy"
 else
-  warn "some services unhealthy — inspect: journalctl -u open-lzt-<svc> -n 50"
+  warn "стенд не поднялся после обновления"
+  # The header promised the previous state was left running; it was not — the restart above had
+  # already replaced it. Restore the recorded commit and bring the old code back up.
+  if [[ -n "${PREV_SHA:-}" ]]; then
+    warn "возвращаю дерево на $PREV_SHA"
+    git reset --hard -q "$PREV_SHA" || warn "не удалось вернуть дерево"
+    git submodule update --init --recursive -q || true
+    for svc in testnet eventus flow-api flow-worker mcp; do
+      systemctl restart "open-lzt-${svc}.service" || true
+    done
+    for _ in $(seq 1 20); do bash scripts/healthcheck.sh >/dev/null 2>&1 && break; sleep 2; done
+    if bash scripts/healthcheck.sh >/dev/null 2>&1; then
+      warn "откатились на предыдущую версию — стенд здоров, обновление не применено"
+    else
+      warn "откат не восстановил здоровье — journalctl -u open-lzt-<svc> -n 50"
+    fi
+  else
+    warn "предыдущая версия не зафиксирована — откатывать не на что"
+  fi
   exit 1
 fi

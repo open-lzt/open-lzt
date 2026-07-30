@@ -42,6 +42,17 @@ ok()    { printf '  %s✓%s %s\n' "$c_green" "$c_reset" "$*"; }
 info()  { printf '  %s·%s %s%s%s\n' "$c_cyan" "$c_reset" "$c_dim" "$*" "$c_reset"; }
 warn()  { printf '  %s!%s %s\n' "$c_yellow" "$c_reset" "$*"; }
 die()   { printf '  %s✗ %s%s\n' "$c_red" "$*" "$c_reset" >&2; exit 1; }
+_has_flag() {  # $1 = flag to look for; the rest are the script's own args
+  local want="$1"; shift
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --bot-token|--bot-admins|--domain|--email|--tls|--market-mode) shift 2 || return 1 ;;
+      "$want") return 0 ;;
+      *) shift ;;
+    esac
+  done
+  return 1
+}
 # ---- bootstrap: make `curl -sSL .../get/all.sh | sudo bash -s -- ...` work ----------------------
 # Everything below assumes it is running from inside the checkout ($INSTALL_DIR/projects,
 # deploy/env, git submodules). Curled, there is no such directory: piped to stdin BASH_SOURCE is
@@ -65,8 +76,10 @@ if [[ -z "$INSTALL_DIR" || ! -f "$INSTALL_DIR/docker-compose.yml" || ! -d "$INST
   # `--dry-run` promises to change nothing, and cloning is a change. With a tree already on disk
   # there is nothing to write, so hand straight over to it; without one, say what would happen and
   # stop, rather than quietly writing 8 submodules under the flag that forbids writing.
-  # Asking what the flags are must not require root, and the bootstrap runs before they are parsed.
-  if [[ " $* " == *" --help "* || " $* " == *" -h "* ]]; then
+  # Asking what the flags are must not require root, and the bootstrap runs before they are
+  # parsed. A substring scan of "$*" also matched a flag's VALUE, so `--email -h` printed help
+  # and skipped the whole install; this walks the args and steps over values.
+  if _has_flag --help "$@" || _has_flag -h "$@"; then
     printf 'open-lzt · установка стенда одной командой\n\n'
     printf '  curl -sSL https://open-lzt.dev/get/all.sh | sudo bash -s -- --yes\n\n'
     printf 'Флаги передаются после --:\n'
@@ -79,10 +92,10 @@ if [[ -z "$INSTALL_DIR" || ! -f "$INSTALL_DIR/docker-compose.yml" || ! -d "$INST
     exit 0
   fi
 
-  if [[ " $* " == *" --dry-run "* && -d "$OPEN_LZT_DIR/.git" ]]; then
+  if _has_flag --dry-run "$@" && [[ -d "$OPEN_LZT_DIR/.git" ]]; then
     exec bash "$OPEN_LZT_DIR/install.sh" "$@"
   fi
-  if [[ " $* " == *" --dry-run "* ]]; then
+  if _has_flag --dry-run "$@"; then
     banner
     phase "Пробный запуск · дерева на диске ещё нет"
     info "склонировал бы $OPEN_LZT_REPO в $OPEN_LZT_DIR"
@@ -126,16 +139,22 @@ DRY_RUN=0
 ASSUME_YES=0
 ARG_BOT_TOKEN=""; ARG_BOT_ADMINS=""; ARG_DOMAIN=""; ARG_EMAIL=""; ARG_TLS=""; ARG_MARKET_MODE=""
 
+# `shift 2` on a trailing flag fails with "shift count out of range" and `set -e` ends the run
+# with a bare exit 1 — no message, nothing to act on. Refuse before the shift instead.
+need_val() {
+  [[ -n "${2:-}" && "${2:0:1}" != "-" ]] || die "флаг $1 требует значение"
+  printf '%s' "$2"
+}
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run) DRY_RUN=1; shift ;;
     --yes|-y|--non-interactive) ASSUME_YES=1; shift ;;
-    --bot-token) ARG_BOT_TOKEN="${2:-}"; shift 2 ;;
-    --bot-admins) ARG_BOT_ADMINS="${2:-}"; shift 2 ;;
-    --domain) ARG_DOMAIN="${2:-}"; shift 2 ;;
-    --email) ARG_EMAIL="${2:-}"; shift 2 ;;
-    --tls) ARG_TLS="${2:-}"; shift 2 ;;
-    --market-mode) ARG_MARKET_MODE="${2:-}"; shift 2 ;;
+    --bot-token) ARG_BOT_TOKEN="$(need_val "$1" "${2:-}")"; shift 2 ;;
+    --bot-admins) ARG_BOT_ADMINS="$(need_val "$1" "${2:-}")"; shift 2 ;;
+    --domain) ARG_DOMAIN="$(need_val "$1" "${2:-}")"; shift 2 ;;
+    --email) ARG_EMAIL="$(need_val "$1" "${2:-}")"; shift 2 ;;
+    --tls) ARG_TLS="$(need_val "$1" "${2:-}")"; shift 2 ;;
+    --market-mode) ARG_MARKET_MODE="$(need_val "$1" "${2:-}")"; shift 2 ;;
     -h|--help)
       if [[ -n "$SELF" && -f "$SELF" ]]; then sed -n '2,16p' "$SELF" | sed 's/^# \{0,1\}//'
       else printf 'curl -sSL https://open-lzt.dev/get/all.sh | sudo bash -s -- --yes\n'; fi
@@ -365,6 +384,16 @@ if [[ $DRY_RUN == 0 ]]; then
     sleep 2
   done
 fi
+# Both loops above can exhaust their retries and fall through. This line used to print regardless,
+# so a Postgres that never came healthy — or a missing lzteventus database — was reported as up, and
+# the real cause surfaced later as an opaque alembic error in phase 5.
+if [[ $DRY_RUN == 0 ]]; then
+  pg_state="$(docker inspect -f '{{.State.Health.Status}}' open-lzt-postgres-1 2>/dev/null || echo none)"
+  [[ "$pg_state" == healthy ]] || die "postgres не поднялся (состояние: $pg_state) — docker compose logs postgres"
+  docker compose exec -T postgres psql -U "${POSTGRES_USER:-lzt}" -tc \
+    "SELECT 1 FROM pg_database WHERE datname='lzteventus'" 2>/dev/null | grep -q 1 \
+    || die "базы lzteventus нет — миграции eventus пойдут в пустоту"
+fi
 ok "postgres + redis up (DBs: lztflow, lzteventus)"
 
 # ---- 3. render per-service env files ------------------------------------------------------------
@@ -590,8 +619,9 @@ if [[ $DRY_RUN == 0 && -z "$_tok" && -z "$(grep -m1 '^BOT_TOKEN=' .env | cut -d=
   fi
 fi
 if [[ $DRY_RUN == 0 && -n "$_tok" ]]; then
+  # Token through the environment, not argv: /proc/<pid>/cmdline is world-readable.
   if [[ -n "$_admins" ]]; then
-    bash scripts/bot-bootstrap.sh --token "$_tok" --admins "$_admins" \
+    BOT_TOKEN="$_tok" bash scripts/bot-bootstrap.sh --admins "$_admins" \
       || warn "bot setup had issues — see output above"
   else
     warn "a bot token without admin ids answers everyone — bot NOT started (pass --bot-admins)"
@@ -680,8 +710,11 @@ elif (( DRY_RUN )); then
 else
   printf '%s│%s  %sПанель не поднялась%s — API работает на 127.0.0.1:%s\n' \
     "$c_cyan" "$c_reset" "$c_red$c_bold" "$c_reset" "${FLOW_PORT}"
-  printf '%s│%s  %sчинить: bash deploy/setup_tls.sh "" "" %s %s%s\n' \
-    "$c_cyan" "$c_reset" "$c_dim" "${TLS_MODE:-none}" "${FLOW_PORT}" "$c_reset"
+  # The real call exports EVENTUS_PORT and passes the domain/email; a repair command missing them
+  # renders a different config than the one that just failed.
+  printf '%s│%s  %sчинить: EVENTUS_PORT=%s bash %s/deploy/setup_tls.sh "%s" "%s" %s %s%s\n' \
+    "$c_cyan" "$c_reset" "$c_dim" "${EVENTUS_PORT}" "$INSTALL_DIR" "${DOMAIN:-}" \
+    "${LETSENCRYPT_EMAIL:-}" "${TLS_MODE:-none}" "${FLOW_PORT}" "$c_reset"
 fi
 printf '%s├%s┤%s\n' "$c_cyan" "$_rule" "$c_reset"
 printf '%s│%s  %sManage:%s update.sh · scripts/healthcheck.sh · scripts/smoke.sh\n' \
@@ -695,7 +728,9 @@ note() { printf '    %s%s%s\n' "$c_dim" "$*" "$c_reset"; }
 
 printf '\n%s%s─── next steps ──────────────────────────────────────────%s\n' "$c_cyan" "$c_bold" "$c_reset"
 note "All ports bind to 127.0.0.1. From your laptop, tunnel first:"
-cmd "ssh -N -L 8000:127.0.0.1:8000 -L 27543:127.0.0.1:27543 -L 8765:127.0.0.1:8765 root@<server>"
+# Ports come from what the install actually used; the literal version printed a tunnel to the
+# defaults on any stand that moved a port, and never forwarded MCP at all.
+cmd "ssh -N -L ${FLOW_PORT}:127.0.0.1:${FLOW_PORT} -L ${EVENTUS_PORT}:127.0.0.1:${EVENTUS_PORT} -L ${TESTNET_PORT}:127.0.0.1:${TESTNET_PORT} -L ${MCP_PORT}:127.0.0.1:${MCP_PORT} root@<server>"
 
 h "Interactive API docs (through the tunnel)"
 note "eventus  http://127.0.0.1:${EVENTUS_PORT}/scalar   (OpenAPI)   ·   /docs (Swagger)"

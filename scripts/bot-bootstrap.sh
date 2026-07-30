@@ -52,6 +52,10 @@ if [[ -n "$ADMINS" && ! "$ADMINS" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
   die "--admins must be numeric Telegram ids, comma-separated (e.g. 111,222)"
 fi
 
+# A token passed as --token sits in argv, and /proc/<pid>/cmdline is world-readable — any local
+# user can read it for the process lifetime. The environment is not (/proc/<pid>/environ is 0400),
+# so callers hand it over that way; --token stays for interactive use.
+TOKEN="${TOKEN:-${BOT_TOKEN:-}}"
 [[ -n "$TOKEN" ]]  && { set_kv "$ENV_FILE" BOT_TOKEN "$TOKEN"; ok "token set"; }
 [[ -n "$ADMINS" ]] && { set_kv "$ENV_FILE" BOT_ADMIN_IDS "$ADMINS"; ok "admins set: $ADMINS"; }
 set_kv "$ENV_FILE" BOT_ENABLED 1

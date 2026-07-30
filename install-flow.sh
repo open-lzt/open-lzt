@@ -28,6 +28,7 @@ die()  { printf '  %s✗%s %s\n' "$c_red" "$c_reset" "$*" >&2; exit 1; }
 MODULE=""
 declare -A CLI_PARAMS=()
 AUTO_RUN=""
+ALLOW_PROD=0
 ACCOUNT_ID=""
 CRON_OVERRIDE=""
 
@@ -41,8 +42,24 @@ while [[ $# -gt 0 ]]; do
     --account) ACCOUNT_ID="${2:-}"; shift 2 ;;
     --cron)   CRON_OVERRIDE="${2:-}"; shift 2 ;;
     --no-run) AUTO_RUN=0; shift ;;
+    --prod)   ALLOW_PROD=1; shift ;;
     --dir)    OPEN_LZT_DIR="${2:-}"; shift 2 ;;
-    -h|--help) sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)
+      # Under `curl ... | sudo bash` BASH_SOURCE is not a readable path: sed printed nothing and the
+      # script exited 0 as though help had been shown.
+      if [[ -f "${BASH_SOURCE[0]:-}" ]]; then sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      else
+        printf 'install-flow.sh — поставить готовый флоу на работающий стенд\n\n'
+        printf '  curl -sSL https://open-lzt.dev/get/flow.sh | sudo bash -s -- \\\n'
+        printf '    --module steam-autobuy --param max_price=10 --run\n\n'
+        printf '  --module M       модуль из каталога\n'
+        printf '  --param k=v      параметр модуля, можно несколько\n'
+        printf '  --run|--no-run   запускать ли сразу\n'
+        printf '  --prod           разрешить запуск на боевом рынке (реальные деньги)\n'
+        printf '  --cron E         переопределить расписание\n'
+        printf '  --dir D          каталог стенда, по умолчанию /opt/open-lzt\n'
+      fi
+      exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
@@ -66,7 +83,19 @@ FKEY="$(get_kv "$ENV_FILE" FLOW_API_KEY)"
 FPORT="$(get_kv "$ENV_FILE" FLOW_PORT)"; FPORT="${FPORT:-8000}"
 FLOW="http://127.0.0.1:${FPORT}"
 
+# ── режим рынка ───────────────────────────────────────────────────────────────
+# Этот скрипт создаёт и запускает флоу, а флоу тратит деньги. Раньше он ни разу не смотрел, на
+# каком рынке стоит стенд: при MARKET_MODE=prod документированный однострочник совершал настоящие
+# сделки молча. Режим печатается всегда, боевой запуск требует явного --prod.
+MARKET_MODE="$(get_kv "$ENV_FILE" MARKET_MODE)"; MARKET_MODE="${MARKET_MODE:-testnet}"
+
 step "Стенд"
+if [[ "$MARKET_MODE" == "prod" ]]; then
+  printf '  %s● рынок: PROD — операции идут за реальные деньги%s
+' "$c_red$c_bold" "$c_reset"
+else
+  ok "рынок: $MARKET_MODE (мок, реальные деньги не задействованы)"
+fi
 HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' "$FLOW/catalog/list" -H "X-API-Key: $FKEY" || true)
 [[ "$HTTP_CODE" == "200" ]] || die "flow-api на $FLOW не отвечает (HTTP $HTTP_CODE) — systemctl status open-lzt-flow-api"
 ok "flow-api отвечает на $FLOW"
@@ -337,9 +366,19 @@ BODY=$(printf '%s' "$RESP" | sed '$d')
 FLOW_ID=$(printf '%s' "$BODY" | python3 -c 'import sys,json;print(json.load(sys.stdin)["flow_id"])')
 ok "флоу создан: $FLOW_ID"
 
-curl -s -o /dev/null -X POST "$FLOW/flows/$FLOW_ID/compile" \
-  -H "X-API-Key: $FKEY" -H 'Content-Type: application/json' -d '{}' || true
-ok "граф скомпилирован"
+# `|| true` followed by an unconditional ok reported success for a graph that never compiled, and
+# the uncompiled graph then went on into --run.
+C_OUT=$(mktemp)
+C_CODE=$(curl -s -o "$C_OUT" -w '%{http_code}' -X POST "$FLOW/flows/$FLOW_ID/compile" \
+  -H "X-API-Key: $FKEY" -H 'Content-Type: application/json' -d '{}' || echo 000)
+if [[ "$C_CODE" == 2* ]]; then
+  ok "граф скомпилирован"
+  rm -f "$C_OUT"
+else
+  warn "компиляция вернула HTTP $C_CODE: $(head -c 300 "$C_OUT" 2>/dev/null)"
+  rm -f "$C_OUT"
+  die "флоу $FLOW_ID создан, но не скомпилирован — запускать его нельзя"
+fi
 
 # ── расписание ────────────────────────────────────────────────────────────────
 # Модуль может объявить `schedule.cron` — тогда он не одноразовый, а повторяющийся, и запускать
@@ -383,6 +422,14 @@ fi
 RUN_CMD="curl -s -X POST $FLOW/runs/create -H 'X-API-Key: <ключ из $ENV_FILE>' \\
     -H 'Content-Type: application/json' \\
     -d '{\"flow_id\":\"$FLOW_ID\",\"run_key\":\"$MODULE-1\",\"params\":$PARAMS_JSON}'"
+
+if [[ "$AUTO_RUN" == "1" && "$MARKET_MODE" == "prod" && $ALLOW_PROD -eq 0 ]]; then
+  warn "стенд стоит на боевом рынке — автозапуск отменён"
+  say "флоу создан и скомпилирован, но не запущен."
+  say "запустить осознанно: добавьте --prod к этой же команде,"
+  say "или переключите стенд на мок: sudo ./install.sh --market-mode testnet"
+  AUTO_RUN=0
+fi
 
 if [[ "$AUTO_RUN" == "1" ]]; then
   step "Запуск"

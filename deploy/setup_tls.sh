@@ -61,6 +61,29 @@ proxy_block() {
     # the root the way this stand did before the panel existed, rather than serving a 404 page.
     warn "panel not built at $PANEL_ROOT — serving the API at / instead"
     cat <<NGINX
+    # Same SSE treatment panel.conf gives /api/tasks/stream — without it nginx buffers the stream
+    # and the client connects successfully, then receives nothing. Here the API sits at the root,
+    # so the stream paths carry no /api prefix.
+    location = /tasks/stream {
+        proxy_pass http://127.0.0.1:${FLOW_PORT}/tasks/stream;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
+        proxy_set_header Connection "";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+    location ~ ^/runs/[^/]+/stream$ {
+        proxy_pass http://127.0.0.1:${FLOW_PORT};
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
+        proxy_set_header Connection "";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
     location / {
         proxy_pass http://127.0.0.1:${FLOW_PORT};
         proxy_set_header Host \$host;
@@ -122,7 +145,16 @@ elif [[ "$MODE" == "letsencrypt" ]]; then
   [[ -n "$DOMAIN" ]] || die "letsencrypt mode needs a domain"
   [[ -n "$EMAIL" ]]  || die "letsencrypt mode needs an email"
   apt-get install -y -qq certbot python3-certbot-nginx
-  # Plain HTTP server first so certbot --nginx can attach the cert and add the 443 block itself.
+  # Only lay down the plain-HTTP site when there is no certificate yet. Re-running this to repair
+  # something else used to overwrite a working HTTPS site and reload nginx BEFORE calling certbot —
+  # one transient certbot failure then left the box permanently downgraded to plain HTTP with a
+  # valid certificate sitting unused on disk.
+  if [[ -d "/etc/letsencrypt/live/${DOMAIN}" ]]; then
+    ok "сертификат для ${DOMAIN} уже есть — конфиг не переписываю, только обновлю"
+    certbot renew --quiet --nginx >/dev/null 2>&1 || warn "certbot renew не отработал — проверьте вручную"
+    systemctl reload nginx >/dev/null 2>&1 || true
+    exit 0
+  fi
   { echo "server {"; echo "    listen 80;"; echo "    server_name ${DOMAIN};"; proxy_block; echo "}"; } > "$SITE"
   enable_site
   if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" --redirect; then
