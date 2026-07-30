@@ -20,14 +20,21 @@ set -euo pipefail
 c_reset=$'\033[0m'; c_cyan=$'\033[1;36m'; c_green=$'\033[1;32m'; c_yellow=$'\033[1;33m'
 c_red=$'\033[1;31m'; c_dim=$'\033[2m'; c_bold=$'\033[1m'; c_mag=$'\033[1;35m'
 _rule="────────────────────────────────────────────────────────────"
+# `printf %-56s` pads by BYTES, so one multibyte glyph in the text loses a column and the right
+# edge of the box drifts inward. The visible width is passed in rather than measured, because
+# measuring it needs a UTF-8 locale that a fresh server does not reliably have.
+_box() {
+  printf '%s│%s  %s%s%s%*s%s│%s\n' \
+    "$c_cyan" "$c_reset" "$2" "$1" "$c_reset" "$(( 56 - $3 ))" "" "$c_cyan" "$c_reset"
+}
 banner() {
   # The bootstrap prints this and then exec's this same script from the clone; without a
   # marker the installer would greet you twice in one run.
   [[ -n "${OPEN_LZT_BANNER_SHOWN:-}" ]] && return 0
   export OPEN_LZT_BANNER_SHOWN=1
   printf '\n%s╭%s╮%s\n'   "$c_cyan" "$_rule" "$c_reset"
-  printf '%s│%s  %s%-56s%s%s│%s\n' "$c_cyan" "$c_reset" "$c_bold" "open-lzt · self-hosted lzt.market stand" "$c_reset" "$c_cyan" "$c_reset"
-  printf '%s│%s  %s%-56s%s%s│%s\n' "$c_cyan" "$c_reset" "$c_dim" "one-command installer" "$c_reset" "$c_cyan" "$c_reset"
+  _box "open-lzt · self-hosted lzt.market stand" "$c_bold" 39
+  _box "one-command installer"                   "$c_dim"  21
   printf '%s╰%s╯%s\n'   "$c_cyan" "$_rule" "$c_reset"
 }
 phase() { printf '\n%s▸ %s%s\n%s%s%s\n' "$c_mag" "$*" "$c_reset" "$c_dim" "$_rule" "$c_reset"; }
@@ -172,10 +179,39 @@ if [[ $need_apt == 1 ]]; then
   run "apt-get update -qq && apt-get install -y -qq git curl ca-certificates"
 fi
 if ! command -v docker >/dev/null; then
-  warn "docker not found — installing via get.docker.com"
+  info "docker не найден — ставлю через get.docker.com"
   run "curl -fsSL https://get.docker.com | sh"
 fi
-docker compose version >/dev/null 2>&1 || die "docker compose plugin missing"
+
+# A host can have `docker` and no `docker compose`: Ubuntu's own docker.io package ships without
+# the plugin, and get.docker.com does nothing when some docker is already installed. Dying here
+# used to hand the operator a dead end on an otherwise fine box, so install it instead. The
+# package name differs per distro, hence the list before falling back to the official installer.
+if ! docker compose version >/dev/null 2>&1; then
+  if (( DRY_RUN )); then
+    warn "плагина docker compose нет — доставил бы его"
+  else
+    info "docker есть, плагина compose нет — доставляю"
+    apt-get update -qq || true
+    for pkg in docker-compose-plugin docker-compose-v2; do
+      apt-get install -y -qq "$pkg" >/dev/null 2>&1 && break || true
+    done
+    if ! docker compose version >/dev/null 2>&1; then
+      info "в репозиториях системы плагина нет — ставлю docker-ce с get.docker.com"
+      curl -fsSL https://get.docker.com | sh
+    fi
+    docker compose version >/dev/null 2>&1 \
+      || die "docker compose не установился — поставь вручную: apt-get install docker-compose-plugin"
+    ok "docker compose $(docker compose version --short 2>/dev/null || echo 'установлен')"
+  fi
+fi
+
+# compose needs a running daemon, and a package install does not always leave one behind.
+if ! (( DRY_RUN )) && ! docker info >/dev/null 2>&1; then
+  info "демон docker не отвечает — запускаю"
+  systemctl enable --now docker >/dev/null 2>&1 || true
+  docker info >/dev/null 2>&1 || die "демон docker не поднялся — смотри: systemctl status docker"
+fi
 if ! command -v uv >/dev/null && [[ ! -x $UV ]]; then
   run "curl -LsSf https://astral.sh/uv/install.sh | sh"
 fi
