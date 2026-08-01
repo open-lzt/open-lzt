@@ -273,12 +273,26 @@ step "А теперь на маркете появляется новый лот
 say "На testnet его порождаем мы сами — управляющей ручкой мока."
 req POST "$TESTNET/testnet/inject-lot"   "{\"category\":\"steam\",\"price\":$((BUY_MAX_PRICE > 3 ? BUY_MAX_PRICE - 3 : 1)),\"title\":\"Steam - только что выставлен\"}"   -H "X-Testnet-Control-Key: ${LZT_TESTNET_CONTROL_KEY:-}"
 INJECTED_ID=$(jget item_id)
-[[ -n "$INJECTED_ID" ]] && ok "лот $INJECTED_ID лежит в каталоге" || fail "инъекция лота не прошла"
+if [[ -n "$INJECTED_ID" ]]; then
+  ok "лот $INJECTED_ID лежит в каталоге"
+else
+  fail "инъекция лота не прошла"
+  # An AuthFailed with an empty token_id is the catch-all answering: the route is absent on
+  # this stand and the request fell through to the generic catalog handler. Naming that beats
+  # leaving the operator to guess between "broken" and "older build".
+  case "$LAST_RESPONSE" in
+    *AuthFailed*|*NotFound*)
+      say "стенд не знает этой ручки — на нём версия testnet старше неё" ;;
+  esac
+fi
 
 step "Ждём следующий опрос движка"
 say "Никто ничего не нажимал: движок сам увидел разницу с прошлым снимком."
 EVENTS_SEEN=0
-for _ in $(seq 1 20); do
+# With no lot there is nothing to wait for: the engine has no diff to find, and the loop
+# would spend a minute to restate a failure already reported above.
+[[ -n "$INJECTED_ID" ]] || WAIT_TICKS=0
+for _ in $(seq 1 "${WAIT_TICKS:-14}"); do
   LAST_RESPONSE=$(curl -sS "$EVENTUS/events/pending?subscription_id=${SUB_ID}&limit=5"     -H "Authorization: Bearer $EKEY" 2>&1)
   EVENTS_SEEN=$(jget_len items)
   [[ "$EVENTS_SEEN" -gt 0 ]] && break
@@ -290,6 +304,8 @@ printf '%s' "$LAST_RESPONSE" | pp 30
 if [[ "$EVENTS_SEEN" -gt 0 ]]; then
   ok "$EVENTS_SEEN событий — про лот $INJECTED_ID узнали, не опрашивая маркет самостоятельно"
   say "Столько же получил бы вебхук, вебсокет и SSE — транспорт это параметр подписки, не другой код."
+elif [[ -z "$INJECTED_ID" ]]; then
+  say "событий нет, потому что лот так и не появился — смотри шаг выше"
 else
   fail "событий нет: движок не увидел новый лот"
 fi
