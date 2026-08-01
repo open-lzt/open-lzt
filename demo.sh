@@ -307,7 +307,12 @@ PP_LINES=8 req GET "$EVENTUS/events/pending?subscription_id=${SUB_ID}&limit=5" "
 
 step "А теперь на маркете появляется новый лот"
 say "На testnet его порождаем мы сами — управляющей ручкой мока."
-req POST "$TESTNET/testnet/inject-lot"   "{\"category\":\"steam\",\"price\":$((BUY_MAX_PRICE > 3 ? BUY_MAX_PRICE - 3 : 1)),\"title\":\"Steam - только что выставлен\"}"   -H "X-Testnet-Control-Key: ${LZT_TESTNET_CONTROL_KEY:-}"
+# A per-run id. The mock's own counter restarts at 900000001 with the process, so every run
+# re-injected the SAME lot — and the engine's baseline is durable, so a lot it has already
+# recorded is not new and no event is ever emitted again. Only the first run on a fresh
+# database could pass; after that it depended on the lot having aged out via lot_disappeared.
+INJECT_ID=9009$(date +%H%M%S)
+req POST "$TESTNET/testnet/inject-lot"   "{\"category\":\"steam\",\"price\":$((BUY_MAX_PRICE > 3 ? BUY_MAX_PRICE - 3 : 1)),\"title\":\"Steam - только что выставлен\",\"item_id\":${INJECT_ID}}"   -H "X-Testnet-Control-Key: ${LZT_TESTNET_CONTROL_KEY:-}"
 INJECTED_ID=$(jget item_id)
 if [[ -n "$INJECTED_ID" ]]; then
   ok "лот $INJECTED_ID лежит в каталоге"
