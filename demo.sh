@@ -328,7 +328,11 @@ EVENTS_SEEN=0
 # With no lot there is nothing to wait for: the engine has no diff to find, and the loop
 # would spend a minute to restate a failure already reported above.
 [[ -n "$INJECTED_ID" ]] || WAIT_TICKS=0
-for _ in $(seq 1 "${WAIT_TICKS:-14}"); do
+# A testnet stand polls every ~10s (LZT_MAX_CADENCE), but a single failed poll costs a
+# retry with backoff, so the honest worst case is over a minute. The old 14 ticks (42s)
+# declared "the engine never saw the lot" while the event was still on its way — measured:
+# injected 18:00, emitted 18:01:35, verdict printed 18:01:02.
+for _ in $(seq 1 "${WAIT_TICKS:-40}"); do
   LAST_RESPONSE=$(curl -sS "$EVENTUS/events/pending?subscription_id=${SUB_ID}&limit=5"     -H "Authorization: Bearer $EKEY" 2>&1)
   EVENTS_SEEN=$(jget_len items)
   [[ "$EVENTS_SEEN" -gt 0 ]] && break
