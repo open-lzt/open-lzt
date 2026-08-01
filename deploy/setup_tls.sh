@@ -42,6 +42,14 @@ apt_wait_setup
 # Who is listening on a port, named. The previous one-liner (`ss | grep -E ':(80|443)\s'`) matched
 # nothing on the run that needed it most — the column is `0.0.0.0:80` followed by more fields, and
 # the anchor never lined up. Match the address column itself and print the process.
+# True when someone other than nginx already holds the port. A docker-proxy on :80 is common on
+# a box that also runs containers, and it must not cost the operator the whole panel: nginx can
+# still serve 443, so the plain-HTTP redirect server is simply left out of the config.
+port_taken_by_other() {
+  local p="$1"
+  [[ -n "$(ss -ltnp 2>/dev/null | awk -v pat=":${p}\$" '$4 ~ pat {print $NF}' | grep -v nginx || true)" ]]
+}
+
 port_holders() {
   local p="$1" out
   out="$(ss -ltnp 2>/dev/null | awk -v pat=":${p}\$" '$4 ~ pat {print $4"  "$NF}')"
@@ -138,7 +146,7 @@ enable_site() {
     # says nothing about starting: the bind happens at runtime, so a port already taken or a
     # masked unit fails only here.
     if ! systemctl reload nginx >/dev/null 2>&1 && ! systemctl restart nginx >/dev/null 2>&1; then
-      systemctl status nginx --no-pager -n 15 2>&1 | sed 's/^/      /' >&2
+      systemctl status nginx --no-pager -n 5 2>&1 | sed 's/^/      /' >&2
       port_holders 80 >&2; port_holders 443 >&2
       die "nginx не запустился (конфиг валиден) — вывод systemctl выше"
     fi
@@ -210,8 +218,12 @@ elif [[ "$MODE" == "selfsigned" ]]; then
     chmod 600 "$TLS_DIR/key.pem"
     ok "generated self-signed cert for ${CN}"
   fi
-  { echo "server {"; echo "    listen 80 default_server;"; listen6 "80 default_server";
-    echo "    server_name ${CN};"; echo "    return 301 https://\$host\$request_uri;"; echo "}";
+  { if port_taken_by_other 80; then
+      warn "порт 80 занят другим процессом — раздаём только https, редирект с http выключен" >&2
+    else
+      echo "server {"; echo "    listen 80 default_server;"; listen6 "80 default_server"
+      echo "    server_name ${CN};"; echo "    return 301 https://\$host\$request_uri;"; echo "}"
+    fi
     echo "server {";
     echo "    listen 443 ssl default_server;";
     listen6 "443 ssl default_server";

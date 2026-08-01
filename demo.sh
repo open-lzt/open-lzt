@@ -37,6 +37,7 @@ SKIP_INSTALL=0
 ASSUME_YES=0
 BUY_COUNT=3
 BUY_MAX_PRICE=10
+SPEED="${DEMO_SPEED:-normal}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -45,11 +46,23 @@ while [[ $# -gt 0 ]]; do
     --yes|-y) ASSUME_YES=1; shift ;;
     --count) BUY_COUNT="${2:-3}"; shift 2 ;;
     --max-price) BUY_MAX_PRICE="${2:-10}"; shift 2 ;;
-    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+    --speed) SPEED="${2:-normal}"; shift 2 ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) printf 'unknown flag: %s\n' "$1"; exit 2 ;;
   esac
 done
 [[ "$MODE" == testnet || "$MODE" == prod ]] || { printf 'mode must be testnet or prod\n'; exit 2; }
+
+# Viewing pace. Without beats the eight scenes fly past as one wall and nobody links a
+# request to the response it produced.
+case "$SPEED" in
+  fast)   BEAT_STEP=0;   BEAT_SCENE=0   ;;
+  normal) BEAT_STEP=1.2; BEAT_SCENE=2.5 ;;
+  slow)   BEAT_STEP=2.5; BEAT_SCENE=5   ;;
+  *) printf 'speed must be fast, normal or slow\n'; exit 2 ;;
+esac
+# Nobody watches a piped run, and the wall-clock cost is real.
+[[ -t 1 ]] || { BEAT_STEP=0; BEAT_SCENE=0; }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
@@ -58,10 +71,11 @@ c_reset=$'\033[0m'; c_cyan=$'\033[1;36m'; c_green=$'\033[1;32m'; c_yellow=$'\033
 c_red=$'\033[1;31m'; c_dim=$'\033[2m'; c_bold=$'\033[1m'; c_mag=$'\033[1;35m'; c_blue=$'\033[1;34m'
 _rule="──────────────────────────────────────────────────────────────────────"
 
-scene()  { printf '\n%s╭%s╮%s\n' "$c_mag" "$_rule" "$c_reset"
+scene()  { beat "$BEAT_SCENE"
+           printf '\n%s╭%s╮%s\n' "$c_mag" "$_rule" "$c_reset"
            printf '%s│%s %s%-69s%s%s│%s\n' "$c_mag" "$c_reset" "$c_bold" "$*" "$c_reset" "$c_mag" "$c_reset"
-           printf '%s╰%s╯%s\n' "$c_mag" "$_rule" "$c_reset"; }
-step()   { printf '\n%s▸%s %s%s%s\n' "$c_cyan" "$c_reset" "$c_bold" "$*" "$c_reset"; }
+           printf '%s╰%s╯%s\n' "$c_mag" "$_rule" "$c_reset"; beat; }
+step()   { beat; printf '\n%s▸%s %s%s%s\n' "$c_cyan" "$c_reset" "$c_bold" "$*" "$c_reset"; }
 say()    { printf '  %s%s%s\n' "$c_dim" "$*" "$c_reset"; }
 ok()     { printf '  %s✓%s %s\n' "$c_green" "$c_reset" "$*"; }
 bad()    { printf '  %s✗%s %s\n' "$c_red" "$c_reset" "$*"; }
@@ -71,26 +85,34 @@ FAILURES=0
 fail() { bad "$*"; FAILURES=$((FAILURES + 1)); }
 
 # Pretty-print JSON without depending on jq (not installed by install.sh).
-pp() { python3 -c 'import json,sys
+# A run trace, a 40-entry event catalog or a flow spec buries the two interesting lines it
+# carries. The cap is per call site: a scene knows how much of its own response means anything.
+PP_LINES=14
+pp() { PP_LINES="${1:-$PP_LINES}" python3 -c 'import json,os,sys
+cap = int(os.environ["PP_LINES"])
 raw = sys.stdin.read().strip()
 if not raw:
-    print("   (empty response)"); sys.exit()
+    print("   (пустой ответ)"); sys.exit()
 try:
     parsed = json.loads(raw)
 except json.JSONDecodeError:
-    print("\n".join("   " + line for line in raw.splitlines()[:20])); sys.exit()
+    print("\n".join("   " + line for line in raw.splitlines()[:cap])); sys.exit()
 text = json.dumps(parsed, indent=2, ensure_ascii=False)
 lines = text.splitlines()
-for line in lines[:60]:
+for line in lines[:cap]:
     print("   " + line)
-if len(lines) > 60:
-    print(f"   … +{len(lines) - 60} more lines")'; }
+if len(lines) > cap:
+    print(f"   … ещё {len(lines) - cap} строк")'; }
+
+beat() { [[ "${1:-$BEAT_STEP}" == 0 ]] || sleep "${1:-$BEAT_STEP}"; }
 
 # req METHOD URL [body] [header...] — prints what it sends, then what came back.
 req() {
   local method="$1" url="$2" body="${3:-}"; shift 3 2>/dev/null || shift 2
   printf '  %s→ %s %s%s\n' "$c_blue" "$method" "$url" "$c_reset"
-  [[ -n "$body" ]] && printf '%s\n' "$body" | pp
+  # Harder cap than the response: a flow spec is 200 lines of JSON, and what matters is
+  # seeing that we sent it, not reading it.
+  [[ -n "$body" ]] && printf '%s\n' "$body" | pp 6
   printf '  %s← response%s\n' "$c_green" "$c_reset"
   local out
   if [[ -n "$body" ]]; then
@@ -112,6 +134,17 @@ try:
     print(node)
 except Exception:
     print("")' "$1"; }
+
+# jget_len KEY — how many elements the response's list under KEY holds. A demo that greps the
+# response text for an error string scores an empty list as a success.
+jget_len() { printf '%s' "$LAST_RESPONSE" | python3 -c 'import json,sys
+try:
+    node = json.load(sys.stdin)
+    for part in sys.argv[1].split("."):
+        node = node[part]
+    print(len(node))
+except Exception:
+    print(0)' "$1"; }
 
 # ───────────────────────────────────────────────────────────────────────────────
 printf '\n%s╔%s╗%s\n' "$c_cyan" "$_rule" "$c_reset"
@@ -178,10 +211,14 @@ step "Сброс мира — тесты должны стартовать с ч
 req POST "$TESTNET/testnet/reset" '{}'
 step "Мир мока — сгенерированные лоты, их можно листать без единого реального аккаунта"
 req GET "$TESTNET/testnet/world/lots?limit=3"
-case "$LAST_RESPONSE" in
-  *AuthFailed*|*NotFound*|"") fail "мок не отдал мир" ;;
-  *) ok "мок сгенерировал каталог сам" ;;
-esac
+# `items: []` is exactly what the previous check called a success -- the string held neither
+# AuthFailed nor NotFound, so an empty world passed. Count elements, not substrings.
+WORLD_LOTS=$(jget_len items)
+if [[ "$WORLD_LOTS" -gt 0 ]]; then
+  ok "мок отдал $WORLD_LOTS лотов из своего мира"
+else
+  fail "мир мока пуст — /testnet/world/lots вернул ноль элементов"
+fi
 say "Каталог маркета мок отдаёт по тем же путям, что и настоящий API — через SDK, следующая сцена."
 
 # ── 4. pylzt ───────────────────────────────────────────────────────────────────
@@ -197,29 +234,65 @@ BASE = "${TESTNET}"
 async def main() -> None:
     cfg = ClientConfig(base_url=BASE, forum_base_url=BASE)
     async with Client(["testnet-fake-token"], config=cfg) as client:
-        print("   пул токенов :", type(client._token_pool).__name__)
         page = await client.market.category_steam(pmax=${BUY_MAX_PRICE})
-        print("   тип ответа  :", type(page).__name__)
-        print("   всего лотов :", page.totalItems)
-        for item in page.items[:3]:
-            print(f"   лот {item.item_id:>8}  {item.price:>5} ₽  {item.title[:44]}")
-            print(f"       поле price имеет тип {type(item.price).__name__}, не str из json")
+        print(f"   {type(page).__name__} — {page.totalItems} лотов в выдаче, цена до ${BUY_MAX_PRICE} ₽")
+        print()
+        print(f"   {'id':>9}  {'цена':>6}  название")
+        print(f"   {'-' * 9}  {'-' * 6}  {'-' * 40}")
+        for item in page.items[:5]:
+            print(f"   {item.item_id:>9}  {item.price:>4} ₽  {item.title[:40]}")
+        print()
+        print(f"   item.price — {type(page.items[0].price).__name__}, не строка из json;")
+        print("   сравнение и арифметика работают без ручного парсинга")
 
 asyncio.run(main())
 PYLZT
 
 # ── 5. eventus ─────────────────────────────────────────────────────────────────
-scene "5/8  eventus — поллинг превращается в события с курсором"
-step "Какие типы событий движок вообще знает"
-req GET "$EVENTUS/event-types" "" -H "Authorization: Bearer $EKEY"
-step "Подписка на новые лоты — транспорт polling, свой курсор"
-req POST "$EVENTUS/subscriptions/create" \
-  '{"transport":"polling","endpoint":"demo-poller","event_types":["new_lot"],"backfill":true}' \
-  -H "Authorization: Bearer $EKEY"
+scene "5/8  eventus — зачем вообще шина событий"
+say "Задача, ради которой она есть: узнать про НУЖНЫЙ лот раньше остальных."
+say "Руками это опрос каталога в цикле у каждого потребителя: свой таймер, свои дубли,"
+say "свой пропуск при рестарте. Движок опрашивает маркет один раз и раздаёт факты."
+
+step "Какие типы событий движок знает"
+PP_LINES=8 req GET "$EVENTUS/event-types" "" -H "Authorization: Bearer $EKEY"
+ok "$(jget_len data) типов событий в каталоге"
+
+step "Подписка на новые лоты"
+say "Это и есть практическая ценность: не «все события маркета», а срез под твой фильтр."
+req POST "$EVENTUS/subscriptions/create"   '{"transport":"polling","endpoint":"demo-poller","event_types":["new_lot"],"backfill":true}'   -H "Authorization: Bearer $EKEY"
 SUB_ID=$(jget data.subscription_id)
-[[ -n "$SUB_ID" ]] && ok "подписка $SUB_ID" || warn "подписку создать не вышло — сценарий продолжит вхолостую"
-step "Что накопилось после последнего курсора"
-req GET "$EVENTUS/events/pending?subscription_id=${SUB_ID}&limit=5" "" -H "Authorization: Bearer $EKEY"
+[[ -n "$SUB_ID" ]] && ok "подписка $SUB_ID" || fail "подписку создать не вышло"
+
+step "Первый опрос — движок запоминает каталог, событий не шлёт"
+say "Иначе на холодном старте прилетело бы «новый лот» про каждый лот, который уже лежал."
+sleep 3
+PP_LINES=8 req GET "$EVENTUS/events/pending?subscription_id=${SUB_ID}&limit=5" "" -H "Authorization: Bearer $EKEY"
+
+step "А теперь на маркете появляется новый лот"
+say "На testnet его порождаем мы сами — управляющей ручкой мока."
+req POST "$TESTNET/testnet/inject-lot"   "{\"category\":\"steam\",\"price\":$((BUY_MAX_PRICE > 3 ? BUY_MAX_PRICE - 3 : 1)),\"title\":\"Steam - только что выставлен\"}"   -H "X-Testnet-Control-Key: ${LZT_TESTNET_CONTROL_KEY:-}"
+INJECTED_ID=$(jget item_id)
+[[ -n "$INJECTED_ID" ]] && ok "лот $INJECTED_ID лежит в каталоге" || fail "инъекция лота не прошла"
+
+step "Ждём следующий опрос движка"
+say "Никто ничего не нажимал: движок сам увидел разницу с прошлым снимком."
+EVENTS_SEEN=0
+for _ in $(seq 1 20); do
+  LAST_RESPONSE=$(curl -sS "$EVENTUS/events/pending?subscription_id=${SUB_ID}&limit=5"     -H "Authorization: Bearer $EKEY" 2>&1)
+  EVENTS_SEEN=$(jget_len items)
+  [[ "$EVENTS_SEEN" -gt 0 ]] && break
+  printf '  %s- пока пусто, ждём…%s
+' "$c_dim" "$c_reset"
+  sleep 3
+done
+printf '%s' "$LAST_RESPONSE" | pp 30
+if [[ "$EVENTS_SEEN" -gt 0 ]]; then
+  ok "$EVENTS_SEEN событий — про лот $INJECTED_ID узнали, не опрашивая маркет самостоятельно"
+  say "Столько же получил бы вебхук, вебсокет и SSE — транспорт это параметр подписки, не другой код."
+else
+  fail "событий нет: движок не увидел новый лот"
+fi
 
 # ── 6. eventus-sdk ─────────────────────────────────────────────────────────────
 scene "6/8  eventus-sdk — тот же движок, но клиентом, без Postgres в зависимостях"
