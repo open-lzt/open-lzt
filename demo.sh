@@ -244,11 +244,17 @@ req GET "$TESTNET/testnet/world/lots?limit=3"
 # `items: []` is exactly what the previous check called a success -- the string held neither
 # AuthFailed nor NotFound, so an empty world passed. Count elements, not substrings.
 WORLD_LOTS=$(jget_len items)
-if [[ "$WORLD_LOTS" -gt 0 ]]; then
-  ok "мок отдал $WORLD_LOTS лотов из своего мира"
-else
-  fail "мир мока пуст — /testnet/world/lots вернул ноль элементов"
-fi
+case "$LAST_RESPONSE" in
+  *WorldDisabled*)
+    warn "мир выключен на этом стенде — LZT_TESTNET_WORLD=1 в deploy/env/testnet.env"
+    say "каталог маркета это не задевает: он генерируется отдельно, следующая сцена его покажет" ;;
+  *)
+    if [[ "$WORLD_LOTS" -gt 0 ]]; then
+      ok "мок отдал $WORLD_LOTS лотов из своего мира"
+    else
+      fail "мир мока пуст — /testnet/world/lots вернул ноль элементов"
+    fi ;;
+esac
 say "Каталог маркета мок отдаёт по тем же путям, что и настоящий API — через SDK, следующая сцена."
 
 # ── 4. pylzt ───────────────────────────────────────────────────────────────────

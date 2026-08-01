@@ -464,9 +464,13 @@ render_envs() {
     info "re-quoted EVENTUS_TOKENS into valid JSON (bash 'source' had eaten the quotes)"
   fi
 
+  # The world (seller roster, forum, lazily materialised lots) is what makes the mock browsable
+  # without a single real account, so a stand wants it on. The library keeps it off by default:
+  # the plain mock is stateless there.
   cat > deploy/env/testnet.env <<EOF
 LZT_TESTNET_HOST=127.0.0.1
 LZT_TESTNET_PORT=${TESTNET_PORT}
+LZT_TESTNET_WORLD=1
 EOF
 
   # A source backs its poll cadence off toward the max when polls turn up nothing, which is
