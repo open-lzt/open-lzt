@@ -7,6 +7,8 @@
 #   bash demo.sh                 # testnet — nothing touches the real market
 #   bash demo.sh --mode prod     # REAL market, REAL money (asks first)
 #   bash demo.sh --skip-install  # stand is already up, go straight to the scenes
+#   bash demo.sh --speed slow    # pace the scenes for a viewer (fast|normal|slow)
+#   bash demo.sh --no-update     # install the checkout as-is, do not pull first
 #
 # The demo installs the stack, health-checks it, then walks one scene per project,
 # printing the request it sends and the response it gets back — no summaries, the
@@ -38,6 +40,9 @@ ASSUME_YES=0
 BUY_COUNT=3
 BUY_MAX_PRICE=10
 SPEED="${DEMO_SPEED:-normal}"
+SKIP_UPDATE=0
+# Kept before the parse loop consumes them: re-exec after an update must carry the same request.
+ORIGINAL_ARGS=("$@")
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -47,6 +52,7 @@ while [[ $# -gt 0 ]]; do
     --count) BUY_COUNT="${2:-3}"; shift 2 ;;
     --max-price) BUY_MAX_PRICE="${2:-10}"; shift 2 ;;
     --speed) SPEED="${2:-normal}"; shift 2 ;;
+    --no-update) SKIP_UPDATE=1; shift ;;
     -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) printf 'unknown flag: %s\n' "$1"; exit 2 ;;
   esac
@@ -170,6 +176,30 @@ if [[ "$MODE" == prod ]]; then
       exit 1
     fi
     [[ "$confirm" == "БУДУ ПОКУПАТЬ" ]] || { bad "не подтверждено — выходим"; exit 1; }
+  fi
+fi
+
+# ── 0. обновление дерева ───────────────────────────────────────────────────────
+# Both this script and install.sh fetch only from their bootstrap branch, and that branch is
+# entered solely when there is no tree on disk — i.e. on the very first `curl | bash`. Run from
+# a clone, every later run installed whatever was checked out, so a stand could sit months
+# behind while the demo reported a clean install. `--ff-only`, never `reset --hard`: discarding
+# someone's local edits is not this script's call to make.
+if [[ $SKIP_UPDATE == 0 && -d .git ]]; then
+  scene "0/8  Обновление — стенд ставится из свежего кода, а не из того, что лежало"
+  BEFORE_REF=$(git rev-parse --short HEAD)
+  if git pull --ff-only --recurse-submodules -q 2>/dev/null; then
+    AFTER_REF=$(git rev-parse --short HEAD)
+    if [[ "$BEFORE_REF" == "$AFTER_REF" ]]; then
+      ok "уже последняя версия ($AFTER_REF)"
+    else
+      ok "обновлено $BEFORE_REF → $AFTER_REF"
+      say "перезапускаюсь на новой версии скрипта"
+      exec bash "$ROOT/demo.sh" --no-update "${ORIGINAL_ARGS[@]}"
+    fi
+  else
+    warn "подтянуть не вышло — в дереве локальные правки или ветка разошлась"
+    say "ставлю то, что лежит на диске ($BEFORE_REF); новых ручек в нём может не быть"
   fi
 fi
 
