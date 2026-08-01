@@ -469,6 +469,17 @@ LZT_TESTNET_HOST=127.0.0.1
 LZT_TESTNET_PORT=${TESTNET_PORT}
 EOF
 
+  # A source backs its poll cadence off toward the max when polls turn up nothing, which is
+  # right against the real marketplace and wrong against a mock: there is no rate limit to
+  # respect, and a stand that has been idle polls every two minutes, so anything a demo or a
+  # test does takes that long to be noticed. Only on testnet.
+  eventus_cadence=""
+  if [[ "${MARKET_MODE}" == "testnet" ]]; then
+    eventus_cadence=$'LZT_MIN_CADENCE=3
+LZT_DEFAULT_CADENCE=5
+LZT_MAX_CADENCE=10'
+  fi
+
   cat > deploy/env/eventus.env <<EOF
 LZT_DATABASE_URL=${pg_sync}/lzteventus
 LZT_REDIS_URL=${redis}/1
@@ -478,6 +489,7 @@ LZT_TOKENS=${eventus_tokens}
 LZT_API_BASE_URL=${testnet_url}
 LZT_HEALTH_HOST=127.0.0.1
 LZT_HEALTH_PORT=${EVENTUS_PORT}
+${eventus_cadence}
 EOF
 
   # flow: its own LZT_FLOW_*. The worker does NOT embed the eventus engine (LZT_FLOW_EMBED_EVENTUS=0)
