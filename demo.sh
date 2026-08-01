@@ -337,13 +337,24 @@ for _ in $(seq 1 "${WAIT_TICKS:-14}"); do
   sleep 3
 done
 printf '%s' "$LAST_RESPONSE" | pp 30
+# `next_seq` counts everything the engine has ever committed, across all types. A source that
+# polls at all writes a `snapshot_initialized` marker on its first cycle, so a zero here means
+# no source ran — not that this subscription's filter matched nothing. The previous message
+# said "the engine did not see the new lot", which blamed the diff for a poller that was down.
+ENGINE_SEQ=$(printf '%s' "$LAST_RESPONSE" | python3 -c 'import json,sys
+try: print(json.load(sys.stdin)["next_seq"])
+except Exception: print(0)')
 if [[ "$EVENTS_SEEN" -gt 0 ]]; then
   ok "$EVENTS_SEEN событий — про лот $INJECTED_ID узнали, не опрашивая маркет самостоятельно"
   say "Столько же получил бы вебхук, вебсокет и SSE — транспорт это параметр подписки, не другой код."
 elif [[ -z "$INJECTED_ID" ]]; then
   say "событий нет, потому что лот так и не появился — смотри шаг выше"
+elif [[ "$ENGINE_SEQ" -eq 0 ]]; then
+  fail "движок не записал ни одного события НИ ОДНОГО типа — опросчик не работает"
+  say "это не про наш лот: на первом же цикле источник пишет snapshot_initialized, а он тоже пуст"
+  say "смотри причину: journalctl -u open-lzt-eventus -n 60 --no-pager"
 else
-  fail "событий нет: движок не увидел новый лот"
+  fail "движок пишет события (seq=$ENGINE_SEQ), но нового лота среди них нет"
 fi
 
 # ── 6. eventus-sdk ─────────────────────────────────────────────────────────────
