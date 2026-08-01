@@ -93,9 +93,47 @@ fail() { bad "$*"; FAILURES=$((FAILURES + 1)); }
 # Pretty-print JSON without depending on jq (not installed by install.sh).
 # A run trace, a 40-entry event catalog or a flow spec buries the two interesting lines it
 # carries. The cap is per call site: a scene knows how much of its own response means anything.
-PP_LINES=14
-pp() { PP_LINES="${1:-$PP_LINES}" python3 -c 'import json,os,sys
+# One line per record, not per field. Indented JSON spent 14 lines on a lot and a half and
+# then cut off, so a listing looked like two records and a "… ещё 21 строк" — the reader could
+# not see how many came back or how they differed. Records now print one to a line with every
+# field kept and long values clipped, so the cap counts records instead of punctuation.
+PP_LINES=24
+pp() { PP_LINES="${1:-$PP_LINES}" python3 -c 'import json,os,shutil,sys,textwrap
 cap = int(os.environ["PP_LINES"])
+width = max(60, shutil.get_terminal_size((150, 24)).columns - 6)
+
+def clip(value):
+    """Long free-text fields are mock filler — keep the field, drop the bulk."""
+    if isinstance(value, str) and len(value) > 24:
+        return value[:21] + "…"
+    if isinstance(value, list) and len(value) > 6:
+        return value[:6] + ["…+%d" % (len(value) - 6)]
+    return value
+
+def one_line(obj):
+    if isinstance(obj, dict):
+        body = ", ".join("%s=%s" % (k, render(v)) for k, v in obj.items())
+        return "{" + body + "}"
+    return render(obj)
+
+def render(value):
+    value = clip(value)
+    if isinstance(value, dict):
+        return "{" + ", ".join("%s=%s" % (k, render(v)) for k, v in value.items()) + "}"
+    if isinstance(value, list):
+        return "[" + ", ".join(render(v) for v in value) + "]"
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=False)
+
+def emit(text, out):
+    """Wrap rather than clip: a run trace carries its whole point in the tail of the
+    record (what each node returned), and cutting at the terminal edge hid exactly that."""
+    if len(text) <= width:
+        out.append(text); return
+    indent = " " * (len(text) - len(text.lstrip()) + 2)
+    out.extend(textwrap.wrap(text, width, subsequent_indent=indent, break_long_words=False))
+
 raw = sys.stdin.read().strip()
 if not raw:
     print("   (пустой ответ)"); sys.exit()
@@ -103,12 +141,26 @@ try:
     parsed = json.loads(raw)
 except json.JSONDecodeError:
     print("\n".join("   " + line for line in raw.splitlines()[:cap])); sys.exit()
-text = json.dumps(parsed, indent=2, ensure_ascii=False)
-lines = text.splitlines()
-for line in lines[:cap]:
+
+out = []
+if isinstance(parsed, list):
+    for element in parsed:
+        emit(one_line(element), out)
+elif isinstance(parsed, dict):
+    for key, value in parsed.items():
+        if isinstance(value, list) and value:
+            emit("%s: %d" % (key, len(value)), out)
+            for element in value:
+                emit("  " + one_line(element), out)
+        else:
+            emit("%s: %s" % (key, render(value)), out)
+else:
+    emit(render(parsed), out)
+
+for line in out[:cap]:
     print("   " + line)
-if len(lines) > cap:
-    print(f"   … ещё {len(lines) - cap} строк")'; }
+if len(out) > cap:
+    print(f"   … ещё {len(out) - cap} записей")'; }
 
 beat() { [[ "${1:-$BEAT_STEP}" == 0 ]] || sleep "${1:-$BEAT_STEP}"; }
 
@@ -118,7 +170,7 @@ req() {
   printf '  %s→ %s %s%s\n' "$c_blue" "$method" "$url" "$c_reset"
   # Harder cap than the response: a flow spec is 200 lines of JSON, and what matters is
   # seeing that we sent it, not reading it.
-  [[ -n "$body" ]] && printf '%s\n' "$body" | pp 6
+  [[ -n "$body" ]] && printf '%s\n' "$body" | pp 12
   printf '  %s← response%s\n' "$c_green" "$c_reset"
   local out
   if [[ -n "$body" ]]; then
@@ -291,7 +343,7 @@ say "Руками это опрос каталога в цикле у каждо
 say "свой пропуск при рестарте. Движок опрашивает маркет один раз и раздаёт факты."
 
 step "Какие типы событий движок знает"
-PP_LINES=8 req GET "$EVENTUS/event-types" "" -H "Authorization: Bearer $EKEY"
+PP_LINES=20 req GET "$EVENTUS/event-types" "" -H "Authorization: Bearer $EKEY"
 ok "$(jget_len data) типов событий в каталоге"
 
 step "Подписка на новые лоты"
@@ -303,7 +355,7 @@ SUB_ID=$(jget data.subscription_id)
 step "Первый опрос — движок запоминает каталог, событий не шлёт"
 say "Иначе на холодном старте прилетело бы «новый лот» про каждый лот, который уже лежал."
 sleep 3
-PP_LINES=8 req GET "$EVENTUS/events/pending?subscription_id=${SUB_ID}&limit=5" "" -H "Authorization: Bearer $EKEY"
+PP_LINES=20 req GET "$EVENTUS/events/pending?subscription_id=${SUB_ID}&limit=5" "" -H "Authorization: Bearer $EKEY"
 
 step "А теперь на маркете появляется новый лот"
 say "На testnet его порождаем мы сами — управляющей ручкой мока."
