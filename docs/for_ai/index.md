@@ -1,37 +1,39 @@
-# open-lzt — AI-agent map
+<p align="right"><a href="index.en.md">English</a> · <b>Русский</b></p>
 
-Compressed orientation for an AI agent working in this monorepo. Read this before grepping source.
+# open-lzt — карта для AI-агента
 
-## Layout
+Сжатая ориентировка для агента, работающего в этом монорепо. Читать до грепа по исходникам.
+
+## Раскладка
 
 ```
 open-lzt/
-├─ install.sh / update.sh        # one-command stand lifecycle (see README "Operations")
-├─ docker-compose.yml            # infra only: postgres + redis
-├─ .env.example                  # canonical config; install.sh renders deploy/env/<svc>.env from it
-├─ deploy/systemd/               # 5 unit files, one per service
+├─ install.sh / update.sh        # жизненный цикл стенда одной командой (README, «Эксплуатация»)
+├─ quickstart.sh / demo.sh       # bootstrap свежего клона и сквозное демо
+├─ docker-compose.yml            # только инфраструктура: postgres + redis
+├─ .env.example                  # канонический конфиг; install.sh рендерит из него deploy/env/<svc>.env
+├─ deploy/systemd/               # юниты: 6 сервисов + пара autoupdate (service и timer)
 ├─ scripts/{smoke,healthcheck}.sh
+├─ lzt-flows/                    # каталог готовых модулей-флоу (сабмодуль)
 └─ projects/
-   ├─ pylzt/       # market/forum/antipublic async SDK (successor to lztforge)
-   ├─ testnet/     # mock lzt.market server (FastAPI) — the test double
-   ├─ eventus/     # event engine service (REST :27543 + poller + PG/Redis)
-   ├─ flow/        # flow-automation service (API :8000 + arq worker + frontend)
-   ├─ mcp/         # MCP server for AI agents (stdio / http :8770)
-   └─ eventus-sdk/ # client library for the eventus engine
+   ├─ pylzt/       # async-SDK маркета, форума и antipublic
+   ├─ testnet/     # мок-сервер lzt.market на FastAPI — тестовый двойник
+   ├─ eventus/     # сервис движка событий (REST :27543 + поллер + PG/Redis)
+   ├─ flow/        # сервис автоматизаций (API :8000 + arq-воркер + фронтенд)
+   ├─ mcp/         # MCP-сервер для AI-агентов (stdio / http :8770)
+   ├─ eventus-sdk/ # клиентская библиотека к движку событий
+   └─ lzt-ui/      # UI-кит веб-панели
 ```
 
-## Key facts
+## Что важно знать
 
-- **Client naming**: consumers `import lztforge`; it is a shim re-exporting `pylzt`
-  (`projects/pylzt/src/lztforge/`, runtime MetaPathFinder + `.pyi` stubs). Full rename is backlogged.
-- **Testnet wiring**: `MARKET_MODE=testnet` points every consumer at the in-stand mock —
-  mcp `LZT_DEV_MCP_TESTNET_BASE_URL`, eventus `LZT_API_BASE_URL`, flow `LZT_FLOW_MARKET_BASE_URL`.
-  Both the market and forum hosts are overridden so forum-scoped methods never leak to prod.
-- **Config isolation**: flow uses `LZT_FLOW_*`; eventus (and flow's embedded engine) use `LZT_*`.
-  install.sh renders a separate `deploy/env/<svc>.env` per service so the `LZT_` prefix never collides.
-- Per-project internals: each `projects/<x>/docs/for_ai/` and `_MODULE.md` files.
+- **Имена клиента.** Часть потребителей делает `import lztforge` — это шим, реэкспортирующий `pylzt` (`projects/pylzt/src/lztforge/`, MetaPathFinder в рантайме плюс `.pyi`-заглушки). Полное переименование лежит в бэклоге.
+- **Проводка testnet.** `MARKET_MODE=testnet` разворачивает всех потребителей на встроенный мок: у mcp это `LZT_DEV_MCP_TESTNET_BASE_URL`, у eventus — `LZT_API_BASE_URL`, у flow — `LZT_FLOW_MARKET_BASE_URL`. Переопределяются оба хоста, и маркет, и форум, чтобы форумные методы не утекли в прод.
+- **Изоляция конфигов.** У flow префикс `LZT_FLOW_`, у eventus и встроенного в flow движка — `LZT_`. `install.sh` рендерит отдельный `deploy/env/<svc>.env` на каждый сервис, поэтому префикс `LZT_` нигде не сталкивается.
+- Внутренности каждого проекта — в его собственных `projects/<x>/docs/for_ai/` и файлах `_MODULE.md`.
 
-## Where to look
+## Куда смотреть
 
-- Install, port map, operations → `README.md`.
-- Per-service internals → `projects/<x>/docs/for_ai/`, `projects/<x>/_MODULE.md`.
+- Установка, карта портов, эксплуатация → `README.md`.
+- Внутренности сервиса → `projects/<x>/docs/for_ai/`, `projects/<x>/_MODULE.md`.
+- Грабли API маркета → `docs/lzt-gotchas/`.

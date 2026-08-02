@@ -60,7 +60,7 @@ sudo ./install.sh
 
 Every port listens on `127.0.0.1`. The stand is reachable from outside only through nginx, and only if you set a domain.
 
-Scheduled self-update lives in the `open-lzt-autoupdate.service` and `.timer` units — see [docs/AUTOUPDATE.md](docs/AUTOUPDATE.md).
+Scheduled self-update lives in the `open-lzt-autoupdate.service` and `.timer` units — see [docs/AUTOUPDATE.en.md](docs/AUTOUPDATE.en.md).
 
 ## testnet or prod
 
@@ -117,7 +117,7 @@ systemctl stop open-lzt-flow-api        # stop a service
 
 ## Documentation
 
-[Why this exists](docs/WHY.en.md) — from the ground up, in plain language · [Architecture](docs/ARCHITECTURE.en.md) — every repo and every link · [Auto-update](docs/AUTOUPDATE.md) · [Panel architecture](docs/panel-architecture.md) · [Market API gotchas](docs/lzt-gotchas/) · [AI-agent docs](docs/for_ai/) · [Contributing](CONTRIBUTING.en.md)
+[Why this exists](docs/WHY.en.md) — from the ground up, in plain language · [Architecture](docs/ARCHITECTURE.en.md) — every repo and every link · [Auto-update](docs/AUTOUPDATE.en.md) · [Panel architecture](docs/panel-architecture.md) (Russian) · [Market API gotchas](docs/lzt-gotchas/) (Russian) · [AI-agent docs](docs/for_ai/index.en.md) · [Contributing](CONTRIBUTING.en.md)
 
 ## License
 

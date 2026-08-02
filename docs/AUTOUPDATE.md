@@ -1,50 +1,49 @@
-# Auto-update guide
+<p align="right"><a href="AUTOUPDATE.en.md">English</a> · <b>Русский</b></p>
 
-The stand can keep itself current by tracking each project's git branch and rolling forward when a
-new commit lands. **Auto-update is off by default** — every service must be opted in explicitly.
+# Автообновление
 
-## How it works
+Стенд умеет держать себя свежим: следит за веткой каждого проекта и накатывает новые коммиты. **По умолчанию автообновление выключено** — каждый сервис включается отдельно и явно.
 
-`deploy/autoupdate.sh` reads one config per service from `deploy/autoupdate/<service>.yaml`. For each
-**enabled** service it:
+## Как это работает
 
-1. fetches the tracked submodule branch and compares it to the checked-out commit;
-2. if behind — checks out the new commit and runs `uv sync`;
-3. runs the optional **e2e gate** (`e2e_cmd`) — a failing gate aborts and keeps the running version;
-4. runs the service's **migrations** (flow / eventus alembic chains, or `none`);
-5. **restarts** the service's systemd units;
-6. waits on the **health gate** (HTTP `health_url`, or a port-listen check for mcp);
-7. if the health gate fails and `rollback_on_failure: true` — reverts to the previous commit,
-   re-syncs, restarts, and re-checks.
+`deploy/autoupdate.sh` читает по одному конфигу на сервис из `deploy/autoupdate/<service>.yaml`. Для каждого **включённого** сервиса он:
 
-Run it once by hand, or on a timer:
+1. подтягивает отслеживаемую ветку сабмодуля и сравнивает с текущим коммитом;
+2. если отстал — переключается на новый коммит и гоняет `uv sync`;
+3. прогоняет необязательный **e2e-гейт** (`e2e_cmd`) — упавший гейт прерывает обновление и оставляет работающую версию;
+4. накатывает **миграции** сервиса (цепочки alembic у flow и eventus, либо `none`);
+5. **перезапускает** systemd-юниты сервиса;
+6. ждёт **гейт здоровья**: HTTP `health_url`, а для mcp — проверку занятого порта;
+7. если гейт здоровья не прошёл и стоит `rollback_on_failure: true` — откатывается на предыдущий коммит, пересинхронизируется, перезапускается и проверяет снова.
+
+Запуск руками или по таймеру:
 
 ```bash
-sudo bash deploy/autoupdate.sh            # check + update every enabled service
-sudo bash deploy/autoupdate.sh --dry-run  # show what it would do, change nothing
+sudo bash deploy/autoupdate.sh            # проверить и обновить все включённые сервисы
+sudo bash deploy/autoupdate.sh --dry-run  # показать, что было бы сделано, ничего не меняя
 ```
 
-## Per-service config
+## Конфиг сервиса
 
-One file per service under `deploy/autoupdate/`:
+По файлу на сервис в `deploy/autoupdate/`:
 
 ```yaml
 # deploy/autoupdate/flow.yaml
-enabled: false                                  # master switch — false = never touched
-submodule: projects/flow                        # which submodule to track
-branch: master                                  # branch to follow
-units: "open-lzt-flow-api open-lzt-flow-worker" # systemd units to restart (space-separated)
-migrate: flow                                    # flow | eventus | none
-health_url: "http://127.0.0.1:8000/catalog/list" # gate after restart
-e2e_cmd: ""                                       # optional pre-swap gate, e.g. below
+enabled: false                                  # главный рубильник: false — сервис не трогают вообще
+submodule: projects/flow                        # за каким сабмодулем следить
+branch: master                                  # какую ветку вести
+units: "open-lzt-flow-api open-lzt-flow-worker" # какие systemd-юниты перезапускать, через пробел
+migrate: flow                                   # flow | eventus | none
+health_url: "http://127.0.0.1:8000/catalog/list" # гейт после перезапуска
+e2e_cmd: ""                                      # необязательный гейт до подмены, пример ниже
 rollback_on_failure: true
 ```
 
-`mcp.yaml` has no HTTP health route, so it uses `health_port: 8770` instead of `health_url`.
+У `mcp.yaml` нет HTTP-маршрута здоровья, поэтому вместо `health_url` он использует `health_port: 8770`.
 
-## Enabling it
+## Как включить
 
-1. Turn a service on and (recommended) wire its e2e gate:
+1. Включите сервис и, желательно, подключите e2e-гейт:
 
    ```yaml
    # deploy/autoupdate/flow.yaml
@@ -52,29 +51,21 @@ rollback_on_failure: true
    e2e_cmd: "uv run --project projects/flow pytest -q -m e2e"
    ```
 
-2. Enable the periodic timer (installed but off by default):
+2. Включите таймер (он установлен, но по умолчанию выключен):
 
    ```bash
    sudo systemctl enable --now open-lzt-autoupdate.timer
-   systemctl list-timers open-lzt-autoupdate.timer   # confirm next run
+   systemctl list-timers open-lzt-autoupdate.timer   # убедиться, что следующий запуск назначен
    ```
 
-   The timer runs `deploy/autoupdate.sh` ~15 min after boot and every 15 min after (edit
-   `deploy/systemd/open-lzt-autoupdate.timer` to change the cadence).
+   Таймер запускает `deploy/autoupdate.sh` примерно через 15 минут после загрузки и дальше каждые 15 минут. Частота меняется в `deploy/systemd/open-lzt-autoupdate.timer`.
 
-To turn it back off: `sudo systemctl disable --now open-lzt-autoupdate.timer`, and/or set
-`enabled: false` in the per-service configs.
+Выключить обратно: `sudo systemctl disable --now open-lzt-autoupdate.timer` и/или `enabled: false` в конфигах сервисов.
 
-## Notes
+## Что важно знать
 
-- The **e2e gate is your safety net** — with it wired, a broken commit is caught before it ever
-  restarts the service. Leave `e2e_cmd` empty only if you accept updates without a pre-swap test.
-- **Signature verification** — set `verify: true` in a service config to require a GPG-signed commit
-  (`git verify-commit`) before the updater runs its code as a privileged rollout. Recommended if the
-  branch is signed; a failed verification aborts the update.
-- The updater advances the submodule checkout in place; it does not push the parent pointer, so a
-  `git status` in the monorepo will show the submodule moved — that's expected on a live stand.
-- Rollback reverts **code**, not the database. Keep migrations backward-compatible if you rely on
-  auto-rollback (add columns, don't drop them in the same release).
-- Behaviour is covered by `tests/test_autoupdate.sh` (drives the updater against a throwaway repo in
-  `--dry-run`, including the flow-worker restart path).
+- **E2E-гейт — это ваша страховка.** С ним сломанный коммит ловится до того, как сервис перезапустится. Оставляйте `e2e_cmd` пустым, только если сознательно принимаете обновления без проверки перед подменой.
+- **Проверка подписи.** `verify: true` в конфиге сервиса требует GPG-подписанный коммит (`git verify-commit`), прежде чем апдейтер выполнит его код с привилегиями. Стоит включать, если ветка подписывается: непрошедшая проверка прерывает обновление.
+- Апдейтер двигает чекаут сабмодуля на месте и **не пушит указатель в родительском репозитории**, поэтому `git status` в монорепо покажет сдвинутый сабмодуль. На живом стенде это ожидаемо.
+- **Откат возвращает код, а не базу.** Если полагаетесь на авто-откат, держите миграции обратно совместимыми: добавляйте столбцы, но не удаляйте их в том же релизе.
+- Поведение покрыто `tests/test_autoupdate.sh` — он гоняет апдейтер против одноразового репозитория в `--dry-run`, включая путь с перезапуском flow-воркера.
