@@ -1,3 +1,5 @@
+<p align="right"><b>English</b> · <a href="index.md">Русский</a></p>
+
 # open-lzt — AI-agent map
 
 Compressed orientation for an AI agent working in this monorepo. Read this before grepping source.
@@ -9,15 +11,18 @@ open-lzt/
 ├─ install.sh / update.sh        # one-command stand lifecycle (see README "Operations")
 ├─ docker-compose.yml            # infra only: postgres + redis
 ├─ .env.example                  # canonical config; install.sh renders deploy/env/<svc>.env from it
-├─ deploy/systemd/               # 5 unit files, one per service
+├─ quickstart.sh / demo.sh       # fresh-clone bootstrap and the end-to-end demo
+├─ deploy/systemd/               # units: 6 services + the autoupdate pair (service and timer)
 ├─ scripts/{smoke,healthcheck}.sh
+├─ lzt-flows/                    # catalog of ready-made flow modules (submodule)
 └─ projects/
-   ├─ pylzt/       # market/forum/antipublic async SDK (successor to lztforge)
+   ├─ pylzt/       # market/forum/antipublic async SDK
    ├─ testnet/     # mock lzt.market server (FastAPI) — the test double
    ├─ eventus/     # event engine service (REST :27543 + poller + PG/Redis)
    ├─ flow/        # flow-automation service (API :8000 + arq worker + frontend)
    ├─ mcp/         # MCP server for AI agents (stdio / http :8770)
-   └─ eventus-sdk/ # client library for the eventus engine
+   ├─ eventus-sdk/ # client library for the eventus engine
+   └─ lzt-ui/      # UI kit for the web panel
 ```
 
 ## Key facts
