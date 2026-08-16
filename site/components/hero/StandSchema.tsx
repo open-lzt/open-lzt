@@ -121,6 +121,37 @@ export function StandSchema({ t }: { t: Content['stand'] }) {
     };
   }, [captionFor]);
 
+  // Схема масштабируется целиком, вместе с подписями: тег набран 12px, значит на экране он
+  // 12×scale. Ниже 0.75 это меньше девяти пикселей — то есть на телефоне главный визуал
+  // страницы превращался в декорацию, которую нельзя прочитать. Тем же порогом закрывается
+  // вторая половина дефекта: подпись узла показывалась по наведению, а на тач-устройстве
+  // наведения не бывает вовсе, и тап сразу уносил скроллом — то есть подписи там не видели
+  // никогда. В списке они видны без нажатия.
+  const tiny = scale < 0.75;
+
+  if (tiny) {
+    return (
+      <div className="stand" id="stand" ref={wrapRef}>
+        <ul className="stand-list">
+          {t.nodes.map((node) => (
+            <li key={node.tag}>
+              <button
+                type="button"
+                onClick={() => {
+                  document
+                    .getElementById(node.goto)
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+              >
+                <Rich text={node.caption} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   return (
     <div className="stand" id="stand" ref={wrapRef}>
       <div className="stand-scale" style={{ transform: `scale(${scale})`, height: STAGE_H * scale }}>
