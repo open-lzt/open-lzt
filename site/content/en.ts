@@ -20,7 +20,7 @@ export const en = {
   hero: {
     titleTop: 'Automate lzt.market.',
     titleAccent: 'In the open.',
-    sub: 'Bumps your listings and threads, buys on your terms, and scenarios are built without code. The stand runs on your own server and stays yours: typed SDK, event engine, MCP server. No real money is spent until you switch off the test market yourself.',
+    sub: 'Bumps your listings and threads and buys on your terms — without a line of code. The stand runs on your own server and stays yours, and spends no real money until you switch the test market off.',
     ctaGithub: 'View on GitHub',
     pip: 'pip install pylzt',
     demo: {
