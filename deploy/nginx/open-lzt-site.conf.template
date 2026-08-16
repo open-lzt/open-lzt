@@ -1,0 +1,116 @@
+# The static site plus the install-script routes.
+#
+# A TEMPLATE, not a config: `@@DOMAIN@@` is substituted by `deploy-site.sh`. The
+# domain used to be typed into this file, and the copy running in production
+# drifted away from it — five fixes deep — because nobody could install this one
+# without first taking the live site down. One variable, one source of truth.
+#
+# The scripts are served straight off the local clone this host already has, so
+# GitHub is not in the install path at all: no proxy, no cache to go stale, and
+# nothing breaks for a visitor when github.com is having a bad day.
+#
+# Every script route is an EXACT `location =`. There is deliberately no `alias`
+# with a request variable and no path concatenation anywhere below — that is the
+# traversal hole, and `deploy/tests/smoke.sh` asserts it stays shut.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name @@DOMAIN@@ www.@@DOMAIN@@;
+
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 301 https://@@DOMAIN@@$request_uri; }
+}
+
+server {
+    # HTTP/2 as a listen parameter, not `http2 on;`: the latter needs nginx
+    # >= 1.25.1 and is an unknown directive on the 1.24 that Ubuntu 24.04 ships,
+    # which takes the whole config down at `nginx -t`.
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name www.@@DOMAIN@@;
+
+    ssl_certificate     /etc/letsencrypt/live/@@DOMAIN@@/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/@@DOMAIN@@/privkey.pem;
+
+    return 301 https://@@DOMAIN@@$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name @@DOMAIN@@;
+
+    ssl_certificate     /etc/letsencrypt/live/@@DOMAIN@@/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/@@DOMAIN@@/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    root /var/www/@@DOMAIN@@;
+    index index.html;
+    charset utf-8;
+
+    # add_header inside a location replaces the whole inherited set, so these are
+    # repeated in every location that sets one of its own.
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    # script-src needs 'unsafe-inline'. A statically exported Next app ships its
+    # hydration payload as inline <script> tags: with a bare 'self' the page
+    # paints and then nothing works — no builder, no copy, no tabs — and curl
+    # cannot see it, because curl does not run scripts. A nonce is not an option
+    # (no server to mint one per request) and hashes change every build.
+    # The exposure this trades away is small here: no user input, no database,
+    # no third-party script, nothing to inject into.
+    add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'" always;
+
+    gzip on;
+    gzip_types text/css application/javascript image/svg+xml text/x-shellscript;
+    gzip_min_length 512;
+
+    # ── install scripts ──────────────────────────────────────────────────────
+    # bash <(curl -sSL https://@@DOMAIN@@/get/all.sh)
+
+    location = /get/all.sh     { alias /opt/open-lzt/install.sh;      include snippets/open-lzt-script.conf; }
+    location = /get/update.sh  { alias /opt/open-lzt/update.sh;       include snippets/open-lzt-script.conf; }
+    location = /get/flow.sh    { alias /opt/open-lzt/install-flow.sh; include snippets/open-lzt-script.conf; }
+    location = /get/demo.sh    { alias /opt/open-lzt/demo.sh;         include snippets/open-lzt-script.conf; }
+    location = /get/eventus.sh { alias /opt/open-lzt/projects/eventus/scripts/quickstart.sh; include snippets/open-lzt-script.conf; }
+
+    # Pinned versions. Both captured segments are constrained — a semver tag and
+    # a name from a fixed list — so nothing a visitor types reaches the filesystem
+    # as a path fragment. A tag that was never published simply 404s.
+    location ~ "^/get/v(?<tag>[0-9]+\.[0-9]+\.[0-9]+)/(?<script>all|update|flow|demo)\.sh$" {
+        root /opt/open-lzt-tags;
+        try_files /$tag/$script.sh =404;
+        include snippets/open-lzt-script.conf;
+    }
+
+    # Anything else under /get/ is not a script we publish.
+    location /get/ { return 404; }
+
+    # ── the site ─────────────────────────────────────────────────────────────
+
+    location /_next/static/ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    location /fonts/ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    # Browsers request /favicon.ico by convention whatever the page declares.
+    location = /favicon.ico { alias /var/www/@@DOMAIN@@/icon.svg; access_log off; }
+
+    error_page 404 /404.html;
+    location = /404.html { internal; }
+
+    # `=404` rather than a fallback FILE: `try_files ... /404.html` serves the
+    # not-found page with status 200, so every broken URL looks successful to a
+    # crawler, a monitor, and any client that checks the code. error_page above
+    # then gives that 404 the pretty body.
+    location / {
+        try_files $uri $uri.html $uri/index.html =404;
+    }
+}
