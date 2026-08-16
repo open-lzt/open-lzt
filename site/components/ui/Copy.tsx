@@ -21,8 +21,8 @@ export function InstallBox({ block, labels }: { block: InstallBlock; labels: { c
           className={`copyall${copiedId === 'all' ? ' copied' : ''}`}
           onClick={() => copy(all, 'all')}
         >
-          <CopyIcon />
-          {copiedId === 'all' ? labels.copied : labels.copyAll}
+          {copiedId === 'all' ? <CheckIcon label={labels.copied} /> : <CopyIcon />}
+          {labels.copyAll}
         </button>
       </span>
 
@@ -37,7 +37,9 @@ export function InstallBox({ block, labels }: { block: InstallBlock; labels: { c
         >
           <span className="ps">{row.ps}</span>
           {row.label}
-          <span className="ok">{labels.copied}</span>
+          <span className="ok">
+            <CheckIcon label={labels.copied} />
+          </span>
         </div>
       ))}
 
@@ -89,8 +91,24 @@ export function CopyPlate({
     >
       {prefix ? <span className="ps">{prefix}</span> : null}
       {text}
-      {copiedId ? <span className="ok">{copiedLabel}</span> : <CopyIcon />}
+      {copiedId ? <CheckIcon label={copiedLabel} /> : <CopyIcon />}
     </span>
+  );
+}
+
+/** Занимает слот самой иконки копирования: подтверждение не двигает вёрстку и не тратит слов. */
+export function CheckIcon({ size = 15, label }: { size?: number; label: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} role="img" aria-label={label}>
+      <path
+        d="M4 12.5L9.5 18L20 6.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

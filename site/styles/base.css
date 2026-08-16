@@ -54,14 +54,19 @@ body.is-loaded .hero-backdrop{opacity:.85}
 @keyframes dotBounce{0%,100%{translate:0 0}50%{translate:0 -12px}}
 body.is-loaded .hero-loading{opacity:0;filter:blur(6px);pointer-events:none}
 
-.rise{opacity:0;translate:0 64px;scale:.985}
+/* Короткий подъём, а не проезд: 64px за .7s читаются как «страница ещё грузится», и глаз
+   следит за движением вместо содержимого. 18px достаточно, чтобы появление заметили, и оно
+   заканчивается раньше, чем начинает требовать внимания.
+   Правка была сделана однажды и потерялась при переезде сайта в монорепо — вернулась 17.08
+   вместе с этим комментарием, потому что без него её снимут снова. */
+.rise{opacity:0;translate:0 18px;scale:.995}
 body.is-loaded .rise{opacity:1;translate:0 0;scale:1;
-  transition:opacity .7s ease-out,translate .7s ease-out,scale .7s ease-out}
+  transition:opacity .38s ease-out,translate .38s ease-out,scale .38s ease-out}
 body.is-loaded .rise-1{transition-delay:0ms}
-body.is-loaded .rise-2{transition-delay:120ms}
-body.is-loaded .rise-3{transition-delay:340ms}
-body.is-loaded .rise-4{transition-delay:440ms}
-body.is-loaded .rise-5{transition-delay:560ms}
+body.is-loaded .rise-2{transition-delay:70ms}
+body.is-loaded .rise-3{transition-delay:170ms}
+body.is-loaded .rise-4{transition-delay:230ms}
+body.is-loaded .rise-5{transition-delay:290ms}
 
 /* header */
 header{position:relative;z-index:5;padding:22px 0}

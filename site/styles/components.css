@@ -35,9 +35,9 @@
 .p-install .row+.row{border-top:1px solid var(--a-100)}
 .p-install .row:hover{background:var(--a-100)}
 .p-install .ps{color:var(--ink-3);flex:0 0 auto}
-.p-install .ok{display:none;margin-left:auto;flex:0 0 auto;align-self:center;
-  font-family:'Inter';font-size:10.5px;font-weight:700;color:var(--accent-hi)}
-.p-install .row.copied .ok{display:inline}
+.p-install .ok{display:none;margin-left:auto;flex:0 0 auto;align-self:center;color:var(--accent-hi)}
+.p-install .row.copied .ok{display:inline-flex}
+.p-install .ok svg{width:14px;height:14px}
 .p-install .note{padding:10px 14px;border-top:1px solid var(--a-100);
   font-size:12px;line-height:1.9;color:var(--ink-3);font-weight:500}
 .p-install .note code{font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
@@ -251,8 +251,8 @@
   border:1px solid var(--a-300);border-radius:12px;padding:13px 18px;position:relative;z-index:1;
   font-family:var(--mono);font-size:14.5px;transition:border-color .2s var(--ease)}
 .url-plate:hover{border-color:rgba(107,242,74,.55)}
-.url-plate .ok{display:none;color:var(--accent-hi);font-family:'Inter';font-size:11px;font-weight:800}
-.url-plate.copied .ok{display:inline}
+.url-plate svg{width:15px;height:15px}
+.url-plate.copied svg{color:var(--accent-hi)}
 .cta-text{font-size:13.5px;line-height:1.65;color:var(--ink-2);font-weight:500}
 .cta-text b{color:var(--ink)}
 .qr{background:#f2f2f2;border-radius:16px;padding:12px;width:164px;height:164px;position:relative;z-index:1}
