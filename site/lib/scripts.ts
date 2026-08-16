@@ -126,7 +126,11 @@ export const STAND_FIELDS: readonly FieldSpec[] = [
   { id: 'email', flag: '--email', kind: 'text', requires: 'domain', defaultValue: '' },
   { id: 'botToken', flag: '--bot-token', kind: 'text', secret: true, defaultValue: '' },
   { id: 'botAdmins', flag: '--bot-admins', kind: 'text', defaultValue: '' },
-  { id: 'yes', flag: '--yes', kind: 'toggle', bare: true, defaultValue: true },
+  // Выключен по умолчанию, и это не осторожность, а исправление. Включённым он давал первой
+  // же команде, которую человек копирует не тронув ни одного поля, вид рабочей: скрипт
+  // молчит, ставит стенд и не спрашивает токен бота с админами, которых в команде нет.
+  // Установка зелёная, бот не стартует, причины на экране никакой.
+  { id: 'yes', flag: '--yes', kind: 'toggle', bare: true, defaultValue: false },
   { id: 'dryRun', flag: '--dry-run', kind: 'toggle', bare: true, defaultValue: false },
 ];
 

@@ -6,7 +6,7 @@ export const en = {
   meta: {
     title: 'OPENLZT — open toolkit for automating lzt.market',
     description:
-      'Self-hosted stand for lzt.market: typed SDK, event engine, no-code automation and an MCP server. Testnet by default.',
+      'Bump listings and threads, buy on your own terms — an open engine for lzt.market. One command puts it on your server, and it spends no real money until you switch the test market off.',
   },
 
   nav: {
@@ -20,11 +20,12 @@ export const en = {
   hero: {
     titleTop: 'Automate lzt.market.',
     titleAccent: 'In the open.',
-    sub: 'A self-hosted stand: typed SDK, event engine, no-code automation and an MCP server. Testnet-first — zero real money until you switch it yourself.',
+    sub: 'Bumps your listings and threads, buys on your terms, and scenarios are built without code. The stand runs on your own server and stays yours: typed SDK, event engine, MCP server. No real money is spent until you switch off the test market yourself.',
     ctaGithub: 'View on GitHub',
     pip: 'pip install pylzt',
     demo: {
-      caption: 'One command on a clean server — installs the stand, then walks you through it',
+      caption:
+        'The main path: one command on a clean server — installs the stand, then walks you through it. Below is just the SDK, if you want code rather than a stand.',
       label: runCommand('demo', '', { short: true }),
       copy: runCommand('demo'),
     },
@@ -49,7 +50,10 @@ export const en = {
       email: { label: 'Email for Let’s Encrypt' },
       botToken: { label: 'Telegram bot token', hint: 'never written to the link — it is a secret' },
       botAdmins: { label: 'Admin ids', hint: 'comma separated; without them the bot does not start' },
-      yes: { label: 'Ask nothing', hint: '--yes' },
+      yes: {
+        label: 'Ask nothing',
+        hint: 'then fill in the bot token and admin IDs above — otherwise the bot will not start',
+      },
       dryRun: { label: 'Print the plan only', hint: '--dry-run: changes nothing' },
       module: { label: 'Catalogue module' },
       params: { label: 'Module parameters' },
@@ -284,6 +288,7 @@ export const en = {
     title: 'Up and running',
     titleAccent: 'in a minute',
     sub: 'Every line is clickable — it copies in full.',
+    req: 'You need a server running Debian or Ubuntu with systemd and root access — any $4/mo VPS will do. We suggest 2 GB of RAM or more: the stand brings up Postgres, Redis and three services. The script installs Docker itself.',
     tabs: [
       {
         id: 'sdk',
@@ -337,6 +342,8 @@ export const en = {
     paid: {
       title: 'What the money buys',
       body: 'Only somebody else running it. The code is the same — you pay for the hands, not for the features.',
+      price: '250 Stars a month',
+      priceNote: 'One stand, no limit on scenarios. Paid in Telegram, cancel any time.',
       points: [
         'Server, updates and monitoring on our side',
         'Updates arrive on their own, no reinstall',

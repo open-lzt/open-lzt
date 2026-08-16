@@ -22,6 +22,7 @@ export function InstallSection({ t }: { t: Content['install'] }) {
           {t.title} <span className="g">{t.titleAccent}</span>
         </h2>
         <p>{t.sub}</p>
+        <p className="sec-req">{t.req}</p>
       </div>
 
       <div className="reveal is-in">
@@ -108,6 +109,10 @@ export function Footer({ t, locale }: { t: Content; locale: 'ru' | 'en' }) {
           <a href="#stand">{t.nav.stand}</a>
           <a href="#projects">{t.nav.projects}</a>
           <a href="#install">{t.nav.install}</a>
+          {/* Второй путь на хостинг, а не дубль первого: шапка прячется целиком на ≤760px,
+              а подвал виден на любой ширине, поэтому с телефона на платную страницу до сих
+              пор не вела ни одна ссылка. */}
+          <a href={locale === 'ru' ? '/hosting' : '/en/hosting'}>{t.nav.hosting}</a>
           <a href="https://github.com/open-lzt" target="_blank" rel="noopener noreferrer">
             {t.nav.github}
           </a>

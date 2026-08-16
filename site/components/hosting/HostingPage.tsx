@@ -53,6 +53,10 @@ export function HostingPage({ t, locale }: { t: Content; locale: 'ru' | 'en' }) 
           <p>
             <Rich text={h.paid.body} />
           </p>
+          <p className="host-price">
+            <b>{h.paid.price}</b>
+            <span>{h.paid.priceNote}</span>
+          </p>
           <ul className="host-list">
             {h.paid.points.map((point) => (
               <li key={point}>{point}</li>

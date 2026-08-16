@@ -5,7 +5,7 @@
 .proj+.proj{border-top:1px solid var(--a-100)}
 .proj.flip{grid-template-columns:minmax(0,6fr) minmax(0,5fr)}
 .proj.flip .p-copy{order:2}
-.p-copy h3{font-size:clamp(28px,3.4vw,42px);font-weight:900;text-transform:uppercase}
+.p-copy h3{font-size:clamp(28px,3.4vw,42px);font-weight:900}
 .p-copy h3 a{transition:color .2s var(--ease)}
 .p-copy h3 a:hover{color:var(--ink-2)}
 .p-kicker{font-size:11.5px;font-weight:700;letter-spacing:.14em;color:var(--ink-3);
@@ -244,7 +244,7 @@
   gap:30px;align-items:center;padding:46px}
 .cta::before{content:"";position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(70% 90% at 18% 0%,rgba(61,220,85,.1),transparent 60%)}
-.cta h2{font-size:clamp(30px,4vw,46px);font-weight:900;text-transform:uppercase;line-height:1.05}
+.cta h2{font-size:clamp(30px,4vw,46px);font-weight:900;line-height:1.05}
 .cta h2 .g{color:var(--accent-hi)}
 .url-plate{display:inline-flex;align-items:center;gap:10px;margin-top:20px;cursor:pointer;
   background:transparent;color:inherit;
@@ -351,7 +351,7 @@
 .host-back{font-size:12.5px;font-weight:700;letter-spacing:.06em;color:var(--ink-3)}
 .host-back:hover{color:var(--ink-2)}
 .host-head h1{margin-top:18px;font-size:clamp(32px,5vw,58px);font-weight:900;
-  text-transform:uppercase;line-height:1.04;letter-spacing:-.025em}
+  line-height:1.04;letter-spacing:-.025em}
 .host-head h1 .g{color:var(--accent-hi)}
 .host-sub{margin-top:16px;font-size:16px;line-height:1.62;color:var(--ink-2);font-weight:500;max-width:620px}
 .host-act{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:28px}
@@ -360,7 +360,7 @@
   font-size:13.5px;font-weight:800;transition:filter .18s var(--ease)}
 .host-cta:hover{filter:brightness(1.08)}
 .host-note{font-size:12.5px;color:var(--ink-3);font-weight:600}
-.host h2{font-size:clamp(22px,2.8vw,30px);font-weight:900;text-transform:uppercase;letter-spacing:-.02em}
+.host h2{font-size:clamp(22px,2.8vw,30px);font-weight:900;letter-spacing:-.02em}
 .host p{margin-top:14px;font-size:15px;line-height:1.62;color:var(--ink-2);font-weight:500;max-width:560px}
 .host p b{color:var(--ink);font-weight:700}
 .host-free{border-top:1px solid var(--a-100)}
@@ -371,6 +371,11 @@
 /* Свой маркер требует сброса чужого: браузерный кружок остаётся и рисуется рядом, что видно
    только на собранной странице — на скриншоте это была пара «• ●» в каждой строке. */
 .host-list,.host-steps-list{list-style:none;padding:0}
+/* Цена — точка интереса этой колонки, поэтому она крупная и без рамки: вес шрифта делает
+   ту же работу, что сделала бы подложка, и не превращает блок в плитку. */
+.host-price{display:flex;flex-direction:column;gap:4px;margin-top:20px}
+.host-price b{font-size:26px;font-weight:900;color:var(--ink);letter-spacing:-.02em}
+.host-price span{font-size:12.5px;color:var(--ink-3);font-weight:600}
 .host-list{margin-top:18px;display:grid;gap:10px;max-width:520px}
 .host-list li{position:relative;padding-left:20px;font-size:14.5px;line-height:1.55;
   color:var(--ink-2);font-weight:500}

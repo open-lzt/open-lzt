@@ -104,6 +104,9 @@ export interface Content {
     title: string;
     titleAccent: string;
     sub: string;
+    /** Что нужно иметь до первой команды. Обязательное поле, а не опция: «на чистом сервере»
+     *  без единого слова о том, каком и где его взять, — вопрос на главном пути. */
+    req: string;
     tabs: { id: string; label: string; rows: InstallRow[] }[];
   };
   cta: { title: string; titleAccent: string; url: string; text: string; copied: string };
@@ -123,7 +126,9 @@ export interface Hosting {
   sub: string;
   /** Free-path block: the honest answer to "why pay if it is open". */
   free: { title: string; body: string; cta: string };
-  paid: { title: string; body: string; points: string[] };
+  /** `price` обязателен, а не опционален: страница, единственная задача которой продать,
+   *  не имела места, куда положить цену, и человек уходил выяснять её в бота. */
+  paid: { title: string; body: string; price: string; priceNote: string; points: string[] };
   /** What the reader does next, in order. */
   steps: { title: string; items: string[] };
   review: { title: string; body: string; points: string[] };
