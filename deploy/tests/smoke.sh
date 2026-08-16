@@ -31,7 +31,16 @@ check_body() {
   # Body into a variable, not piped into `grep -q`: grep exits at the first hit
   # and closes the pipe, curl dies of SIGPIPE with exit 23, and the assertion
   # fails on a file that was perfectly fine.
-  body="$(curl -sS "$BASE$path" || true)"
+  #
+  # A failed request is reported as a FAILED REQUEST, never as missing content.
+  # Swallowing the error left an empty body and printed "does not contain",
+  # which sends the reader to look at a file that is perfectly fine — seen once
+  # on a transient connection error against a route that was serving correctly.
+  if ! body="$(curl -sS --retry 2 --retry-all-errors "$BASE$path" 2>&1)"; then
+    printf '%sFAIL%s %s could not be fetched: %s\n' "$c_bad" "$c_off" "$path" "${body:-no output}"
+    fails=$((fails + 1))
+    return
+  fi
   if printf '%s' "$body" | grep -qF -- "$needle"; then
     printf '%s ok %s %s contains %s\n' "$c_ok" "$c_off" "$path" "$needle"
   else
