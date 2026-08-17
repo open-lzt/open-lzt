@@ -425,11 +425,37 @@
 /* Свой маркер требует сброса чужого: браузерный кружок остаётся и рисуется рядом, что видно
    только на собранной странице — на скриншоте это была пара «• ●» в каждой строке. */
 .host-list,.host-steps-list{list-style:none;padding:0}
-/* Цена — точка интереса этой колонки, поэтому она крупная и без рамки: вес шрифта делает
+/* Цена — точка интереса первого экрана, поэтому она крупная и без рамки: вес шрифта делает
    ту же работу, что сделала бы подложка, и не превращает блок в плитку. */
-.host-price{display:flex;flex-direction:column;gap:4px;margin-top:20px}
-.host-price b{font-size:26px;font-weight:900;color:var(--ink);letter-spacing:-.02em}
-.host-price span{font-size:12.5px;color:var(--ink-3);font-weight:600}
+.price{margin-top:26px;display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.price-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.price-num{font-size:38px;font-weight:900;color:var(--ink);letter-spacing:-.03em;line-height:1;
+  /* Число меняется при переключении валюты, поэтому цифры моноширинные по метрике: без этого
+     строка дёргается, и глаз читает скачок как перерисовку всего блока. */
+  font-variant-numeric:tabular-nums}
+/* Единица идёт ПОСЛЕ суммы и отступает от неё: знак, приклеенный спереди, читается как часть
+   первой цифры. Кегль меньше и вес легче — это подпись к числу, а не само число. */
+.price-cur{margin-left:7px;font-size:.5em;font-weight:600;color:var(--ink-3);letter-spacing:0}
+.price-per{font-size:14px;font-weight:600;color:var(--ink-3)}
+/* Скелет повторяет размер будущего числа, а не является полосой вообще: когда цена приедет,
+   не сдвинется ничего. */
+.price-skel{display:block;width:190px;height:38px;border-radius:9px;background:var(--a-100)}
+@media(prefers-reduced-motion:no-preference){
+  .price-skel{animation:skelPulse 1.3s ease-in-out infinite}
+}
+@keyframes skelPulse{0%,100%{opacity:.55}50%{opacity:1}}
+.price-switch{display:inline-flex;gap:4px;padding:4px;border-radius:var(--r-pill);
+  border:1px solid var(--a-200);background:var(--surface-1)}
+.price-cur-btn{padding:6px 14px;border-radius:var(--r-pill);border:0;cursor:pointer;
+  background:transparent;color:var(--ink-3);font-size:12.5px;font-weight:700;
+  transition:color .2s var(--ease),background .2s var(--ease)}
+.price-cur-btn:hover{color:var(--ink)}
+.price-cur-btn.on{color:#06210b;background:var(--accent)}
+.price-cta{align-self:flex-start;padding:13px 26px;border-radius:var(--r-pill);
+  background:var(--accent);color:#06210b;font-size:14px;font-weight:800;
+  transition:filter .2s var(--ease)}
+.price-cta:hover{filter:brightness(1.08)}
+.price-note{font-size:12.5px;color:var(--ink-3);font-weight:600;max-width:440px;line-height:1.5}
 .host-list{margin-top:18px;display:grid;gap:10px;max-width:520px}
 .host-list li{position:relative;padding-left:20px;font-size:14.5px;line-height:1.55;
   color:var(--ink-2);font-weight:500}

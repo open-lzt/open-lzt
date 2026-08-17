@@ -61,7 +61,11 @@ server {
     # (no server to mint one per request) and hashes change every build.
     # The exposure this trades away is small here: no user input, no database,
     # no third-party script, nothing to inject into.
-    add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'" always;
+    # `connect-src` пускает ОДИН чужой адрес — ручку цены. Страница спрашивает у сервиса, сколько
+    # стоит подписка, вместо того чтобы держать число строкой в своих исходниках; без этой записи
+    # браузер режет запрос МОЛЧА, и страница видит ровно то же, что при упавшем сервисе.
+    # Расширять список нечем: ничего другого сайт наружу не запрашивает.
+    add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' https://api.open-lzt.dev; frame-ancestors 'none'; base-uri 'self'" always;
 
     gzip on;
     gzip_types text/css application/javascript image/svg+xml text/x-shellscript;

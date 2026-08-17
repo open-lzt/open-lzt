@@ -342,8 +342,13 @@ export const en = {
     paid: {
       title: 'What the money buys',
       body: 'Only somebody else running it. The code is the same — you pay for the hands, not for the features.',
-      price: '250 Stars a month',
+      per: 'a month',
+      currency: { stars: 'Stars', usd: '$', rub: '₽' },
+      currencyLabel: 'Currency',
+      cta: 'Open the bot',
+      ctaNoPrice: 'See the price in the bot',
       priceNote: 'One stand, no limit on scenarios. Paid in Telegram, cancel any time.',
+      noteNoPrice: 'The exact amount and how to pay are in the bot, before anything is pressed.',
       points: [
         'Server, updates and monitoring on our side',
         'Updates arrive on their own, no reinstall',

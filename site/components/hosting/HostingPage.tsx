@@ -1,6 +1,6 @@
 import type { Content } from '@/content/types';
 import { Rich } from '@/components/ui/Rich';
-import { HOSTED_BOT_URL } from '@/lib/site';
+import { Price } from '@/components/hosting/Price';
 
 /**
  * The hosted-service page.
@@ -27,14 +27,12 @@ export function HostingPage({ t, locale }: { t: Content; locale: 'ru' | 'en' }) 
           {h.titleTop} <span className="g">{h.titleAccent}</span>
         </h1>
         <p className="host-sub">{h.sub}</p>
-        {HOSTED_BOT_URL ? (
-          <p className="host-act">
-            <a className="host-cta" href={HOSTED_BOT_URL}>
-              {h.cta.label}
-            </a>
-            <span className="host-note">{h.cta.note}</span>
-          </p>
-        ) : null}
+        {/* Цена стоит В ПЕРВОМ экране, рядом с кнопкой, а не третьим блоком за секцией про
+            бесплатный путь. Прежний порядок звал в бота ДО того, как названы условия: человек
+            приходит на страницу хостинга с одним вопросом — сколько это стоит, — и уходил к
+            кнопке, так его и не получив. Сама цена приезжает из сервиса: см. `Price`. */}
+        <Price t={h.paid} />
+        <span className="host-note">{h.cta.note}</span>
       </section>
 
       <section className="sec host-free reveal is-in">
@@ -52,10 +50,6 @@ export function HostingPage({ t, locale }: { t: Content; locale: 'ru' | 'en' }) 
           <h2>{h.paid.title}</h2>
           <p>
             <Rich text={h.paid.body} />
-          </p>
-          <p className="host-price">
-            <b>{h.paid.price}</b>
-            <span>{h.paid.priceNote}</span>
           </p>
           <ul className="host-list">
             {h.paid.points.map((point) => (

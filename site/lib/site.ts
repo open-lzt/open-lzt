@@ -27,6 +27,16 @@ export const SITE_URL = `https://${SITE_HOST}`;
 export const HOSTED_BOT_HANDLE = 'OpenLztBot';
 export const HOSTED_BOT_URL = `https://t.me/${HOSTED_BOT_HANDLE}`;
 
+/**
+ * Откуда страница спрашивает цену.
+ *
+ * Отдельный адрес, а не путь на этом же домене: сайт статический и лежит на nginx, а цену знает
+ * панель. **Кросс-доменный запрос требует, чтобы этот адрес стоял в `connect-src` заголовка CSP**
+ * (`deploy/nginx/open-lzt-site.conf.template`) — иначе браузер режет его молча, и страница видит
+ * ровно то же, что при упавшем сервисе: цены нет, остаётся кнопка.
+ */
+export const PRICING_URL = 'https://api.open-lzt.dev/pricing';
+
 export type ScriptName = 'all' | 'update' | 'flow' | 'demo' | 'eventus';
 
 /** A published script's URL: `scriptUrl('demo')` → `https://<host>/get/demo.sh`. */

@@ -128,7 +128,21 @@ export interface Hosting {
   free: { title: string; body: string; cta: string };
   /** `price` обязателен, а не опционален: страница, единственная задача которой продать,
    *  не имела места, куда положить цену, и человек уходил выяснять её в бота. */
-  paid: { title: string; body: string; price: string; priceNote: string; points: string[] };
+  paid: {
+    title: string;
+    body: string;
+    priceNote: string;
+    points: string[];
+    /** Единица периода рядом с числом: «в месяц». */
+    per: string;
+    /** Подписи валют. Ключи те же, что отдаёт `/pricing`. */
+    currency: { stars: string; usd: string; rub: string };
+    currencyLabel: string;
+    cta: string;
+    /** Цену узнать не удалось: зовём в бота, где её назовут точно, и НЕ показываем прочерк. */
+    ctaNoPrice: string;
+    noteNoPrice: string;
+  };
   /** What the reader does next, in order. */
   steps: { title: string; items: string[] };
   review: { title: string; body: string; points: string[] };
