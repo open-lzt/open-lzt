@@ -103,9 +103,15 @@ function TestnetScene() {
           ['POST', '/market/bump'],
           ['GET ', '/market/payments'],
         ].map(([verb, path]) => (
-          <div key={path}>
-            <span className="m">{verb}</span> <span className="host">{host}</span>
-            {path} <span className="ok">200</span>
+          // Пробелы между колонками задаёт `gap`, а не литералы в разметке: с литералами строка
+          // держалась только на `white-space:pre`, а он и требовал прокрутки.
+          <div className="tn-row" key={path}>
+            <span className="m">{verb.trim()}</span>
+            <span className="path">
+              <span className="host">{host}</span>
+              {path}
+            </span>
+            <span className="ok">200</span>
           </div>
         ))}
       </div>
@@ -172,31 +178,44 @@ function Ticker({ active, onTick, every = 2600 }: { active: boolean; onTick: () 
 /* ── auto-lzt: the flow graph lights up node by node ────────────────────── */
 
 const FLOW_NODES = [
-  { icon: 'clock', label: 'каждый день', style: { left: '4%', top: 56 } },
-  { icon: 'up', label: 'поднять лоты', style: { left: '38%', top: 112 } },
-  { icon: 'check', label: 'проверить статус', style: { left: '55%', top: 192 } },
-  { icon: 'bell', label: 'уведомить', style: { left: '10%', top: 230 } },
+  { icon: 'clock', label: 'каждый день', note: 'триггер' },
+  { icon: 'up', label: 'поднять лоты', note: 'действие' },
+  { icon: 'check', label: 'проверить статус', note: 'условие' },
+  { icon: 'bell', label: 'уведомить', note: 'действие' },
 ] as const;
 
 function FlowScene() {
   const [hot, setHot] = useState(0);
 
+  // Раскладка ДЕТЕРМИНИРОВАННАЯ, и это не вкусовая правка. Прежде узлы стояли абсолютно, в
+  // процентах по горизонтали, а связи рисовал SVG с `viewBox="0 0 520 300"` и
+  // `preserveAspectRatio="none"` — то есть в другой системе координат, растянутой по ширине
+  // контейнера. Совпадали они ровно при ширине 520px и ни при какой другой: на живой странице
+  // линии упирались в пустоту и проходили сквозь соседний узел.
+  //
+  // Здесь связь — это граница между строками сетки, поэтому разъехаться ей не с чем ни при
+  // какой ширине.
   return (
     <Scene title="auto-lzt — flow">
       {(inView) => (
         <div className="flow">
           <Ticker active={inView} every={1400} onTick={() => setHot((h) => h + 1)} />
-          <svg className="wires" viewBox="0 0 520 300" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M120 78 C190 78 200 120 240 128" />
-            <path d="M330 140 C400 150 400 190 380 208" />
-            <path d="M270 152 C220 190 190 200 160 214" />
-          </svg>
-          {FLOW_NODES.map((node, i) => (
-            <span key={node.label} className={`fnode${hot % FLOW_NODES.length === i ? ' hot' : ''}`} style={node.style}>
-              <Icon name={node.icon} size={16} />
-              {node.label}
-            </span>
-          ))}
+          <ol className="fchain">
+            {FLOW_NODES.map((node, i) => (
+              <li
+                key={node.label}
+                className={`fstep${hot % FLOW_NODES.length === i ? ' hot' : ''}`}
+              >
+                <span className="fdot">
+                  <Icon name={node.icon} size={15} />
+                </span>
+                <span className="fbody">
+                  <span className="flabel">{node.label}</span>
+                  <span className="fnote">{node.note}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
           <span className="flow-note">
             flow: <b>bump-daily</b> · исполняется по расписанию
           </span>
@@ -343,12 +362,12 @@ function CatalogScene() {
 /* ── lzt-ui: tokens and a theme switch ──────────────────────────────────── */
 
 const SWATCHES = [
-  ['#3ddc55', '500'],
-  ['#2cb244', '600'],
-  ['#1a8a31', '700'],
-  ['#1a1a1e', 's-3'],
-  ['#151518', 's-2'],
-  ['#111113', 's-1'],
+  ['#3ddc55', 'accent-500'],
+  ['#2cb244', 'accent-600'],
+  ['#1a8a31', 'accent-700'],
+  ['#1a1a1e', 'surface-3'],
+  ['#151518', 'surface-2'],
+  ['#111113', 'surface-1'],
 ] as const;
 
 function UiKitScene() {
@@ -356,23 +375,36 @@ function UiKitScene() {
   return (
     <Scene title="lzt-ui — tokens">
       <div className="uikit">
-        <div className="swatches">
-          {SWATCHES.map(([color, name]) => (
-            <span key={name} className="sw" style={{ background: color }} data-n={name} />
-          ))}
+        <div>
+          <span className="ui-cap">палитра</span>
+          <div className="swatches">
+            {SWATCHES.map(([color, name]) => (
+              <span key={name} className="sw">
+                <i style={{ background: color }} />
+                <b>{name}</b>
+                <s>{color}</s>
+              </span>
+            ))}
+          </div>
         </div>
-        <div className={`ui-demo${lite ? ' lite' : ''}`}>
-          <span className="d-btn">Кнопка</span>
-          <span className="d-chip">чип</span>
-          <span className="d-chip">статус</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={lite}
-            aria-label="тема"
-            className={`toggle d-sw${lite ? ' on' : ''}`}
-            onClick={() => setLite((v) => !v)}
-          />
+        <div>
+          <span className="ui-cap">компоненты</span>
+          <div className={`ui-demo${lite ? ' lite' : ''}`} style={{ marginTop: 8 }}>
+            <span className="d-btn">Кнопка</span>
+            <span className="d-chip">чип</span>
+            <span className="d-chip">статус</span>
+            <label className="d-theme">
+              <span>{lite ? 'светлая' : 'тёмная'}</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={lite}
+                aria-label="тема"
+                className={`toggle${lite ? ' on' : ''}`}
+                onClick={() => setLite((v) => !v)}
+              />
+            </label>
+          </div>
         </div>
       </div>
     </Scene>
