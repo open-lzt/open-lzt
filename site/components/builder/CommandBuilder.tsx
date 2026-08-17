@@ -15,7 +15,7 @@ import {
 } from '@/lib/scripts';
 import type { Content } from '@/content/types';
 import { useCopy } from '@/hooks/useCopy';
-import { CopyIcon } from '@/components/ui/Copy';
+import { CheckIcon, CopyIcon } from '@/components/ui/Copy';
 
 type T = Content['builder'];
 
@@ -118,7 +118,7 @@ export function CommandBuilder({ t }: { t: T }) {
           disabled={locked}
           title={locked ? t.prodWarning : undefined}
         >
-          <CopyIcon /> {copiedId === 'cmd' ? t.copied : t.copy}
+          {copiedId === 'cmd' ? <CheckIcon label={t.copied} /> : <CopyIcon />} {t.copy}
         </button>
       </div>
 

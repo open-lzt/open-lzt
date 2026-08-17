@@ -16,7 +16,7 @@
 
 :root{
   --bg:#0a0a0b; --surface-1:#111113; --surface-2:#151518; --surface-3:#1a1a1e;
-  --ink:#e8e8e8; --ink-2:#a3a3a8; --ink-3:#66666c;
+  --ink:#e8e8e8; --ink-2:#a3a3a8; --ink-3:#66666c; --code:#c8c8ce;
   --accent:#3ddc55; --accent-hi:#6bf24a; --accent-deep:#16691f;
   --accent-glow:rgba(61,220,85,.35);
   --warn:#ffb03f; --warn-soft:rgba(255,176,63,.08); --warn-line:rgba(255,176,63,.35);
