@@ -2,7 +2,7 @@
 # Smoke-test a published site. Two configs have pointed at this file for weeks;
 # it did not exist, so nothing it promised was ever checked.
 #
-#   ./deploy/tests/smoke.sh https://open-lzt.chqcode.com
+#   ./deploy/tests/smoke.sh https://open-lzt.dev
 #
 # Run it from anywhere, against anything — it only makes HTTP requests.
 set -uo pipefail
@@ -12,16 +12,15 @@ set -uo pipefail
 # игнорировала и проверяла домен по умолчанию. Три прогона подряд отчитались зелёным про
 # `open-lzt.dev`, проверив на самом деле соседний сайт, — и один раз покраснели ровно потому,
 # что тот в этот момент перекатывался.
-BASE="${1:-${BASE:-https://open-lzt.chqcode.com}}"
+#
+# Заголовок `== $BASE ==` печатался и тогда: цель называлась, читатель её не прочитал. Отсюда
+# правка именно ЗДЕСЬ, а не ещё одна строка вывода — второй заголовок не лечит невнимательность,
+# а принятая переменная делает ошибку невозможной.
+BASE="${1:-${BASE:-https://open-lzt.dev}}"
 BASE="${BASE%/}"
 
 c_ok=$'\033[32m'; c_bad=$'\033[31m'; c_off=$'\033[0m'
 fails=0
-
-# Цель называется ВСЛУХ, первой строкой. Проверка, которая не говорит, что именно она щупала,
-# позволяет проверить не тот адрес и уйти довольным: именно так три зелёных отчёта про один
-# домен оказались отчётами про другой.
-printf '%s→ %s%s\n\n' "$c_ok" "$BASE" "$c_off"
 
 # Every assertion prints what it expected and what it got: a red line that does
 # not say the actual value sends the reader back to curl by hand.

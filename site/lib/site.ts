@@ -4,7 +4,10 @@
  * turned out to be different from the one in the copy, every install command on the page
  * pointed at a host that does not resolve — the page looked finished and nothing on it ran.
  */
-export const SITE_HOST = 'open-lzt.chqcode.com';
+// Канонический адрес — `open-lzt.dev`. `open-lzt.chqcode.com` продолжает работать и отдавать
+// те же пять скриптов (проверено на обоих: 200 по каждому), но команды, которые человек
+// копирует в терминал, и ссылки в метаданных должны звать одно имя, а не два.
+export const SITE_HOST = 'open-lzt.dev';
 
 /** Full origin, for metadata and clipboard commands. */
 export const SITE_URL = `https://${SITE_HOST}`;

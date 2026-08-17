@@ -4,7 +4,7 @@
 # back healthy the tree is restored to it and the services restarted on the old code. Idempotent.
 #
 #   sudo ./update.sh
-#   curl -sSL https://open-lzt.chqcode.com/get/update.sh | sudo bash
+#   curl -sSL https://open-lzt.dev/get/update.sh | sudo bash
 set -euo pipefail
 
 # Published at /get/update.sh, so it is usually piped from curl. Piped, BASH_SOURCE is not a path
@@ -22,7 +22,7 @@ fi
 [[ -f "$INSTALL_DIR/docker-compose.yml" ]] \
   || { printf 'стенда нет в %s — укажите OPEN_LZT_DIR=/путь\n' "$INSTALL_DIR" >&2; exit 1; }
 [[ $EUID -eq 0 ]] \
-  || { printf 'нужен root: curl -sSL https://open-lzt.chqcode.com/get/update.sh | sudo bash\n' >&2; exit 1; }
+  || { printf 'нужен root: curl -sSL https://open-lzt.dev/get/update.sh | sudo bash\n' >&2; exit 1; }
 cd "$INSTALL_DIR"
 UV=/root/.local/bin/uv
 export PATH="/root/.local/bin:$PATH"

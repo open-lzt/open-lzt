@@ -81,7 +81,7 @@ if [[ -z "$INSTALL_DIR" || ! -f "$INSTALL_DIR/docker-compose.yml" || ! -d "$INST
   # and skipped the whole install; this walks the args and steps over values.
   if _has_flag --help "$@" || _has_flag -h "$@"; then
     printf 'open-lzt · установка стенда одной командой\n\n'
-    printf '  curl -sSL https://open-lzt.chqcode.com/get/all.sh | sudo bash -s -- --yes\n\n'
+    printf '  curl -sSL https://open-lzt.dev/get/all.sh | sudo bash -s -- --yes\n\n'
     printf 'Флаги передаются после --:\n'
     printf '  --market-mode testnet|prod     режим рынка, по умолчанию testnet\n'
     printf '  --tls selfsigned|none          сертификат на голом IP\n'
@@ -108,7 +108,7 @@ if [[ -z "$INSTALL_DIR" || ! -f "$INSTALL_DIR/docker-compose.yml" || ! -d "$INST
 
   [[ $EUID -eq 0 ]] || {
     printf '  %s✗ нужны права root%s\n' "$c_red" "$c_reset" >&2
-    printf '    %scurl -sSL https://open-lzt.chqcode.com/get/all.sh | sudo bash -s -- --yes%s\n' "$c_dim" "$c_reset" >&2
+    printf '    %scurl -sSL https://open-lzt.dev/get/all.sh | sudo bash -s -- --yes%s\n' "$c_dim" "$c_reset" >&2
     exit 1
   }
 
@@ -157,7 +157,7 @@ while [[ $# -gt 0 ]]; do
     --market-mode) ARG_MARKET_MODE="$(need_val "$1" "${2:-}")"; shift 2 ;;
     -h|--help)
       if [[ -n "$SELF" && -f "$SELF" ]]; then sed -n '2,16p' "$SELF" | sed 's/^# \{0,1\}//'
-      else printf 'curl -sSL https://open-lzt.chqcode.com/get/all.sh | sudo bash -s -- --yes\n'; fi
+      else printf 'curl -sSL https://open-lzt.dev/get/all.sh | sudo bash -s -- --yes\n'; fi
       exit 0 ;;
     *) printf 'unknown flag: %s (try --help)\n' "$1" >&2; exit 2 ;;
   esac

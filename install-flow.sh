@@ -50,7 +50,7 @@ while [[ $# -gt 0 ]]; do
       if [[ -f "${BASH_SOURCE[0]:-}" ]]; then sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       else
         printf 'install-flow.sh — поставить готовый флоу на работающий стенд\n\n'
-        printf '  curl -sSL https://open-lzt.chqcode.com/get/flow.sh | sudo bash -s -- \\\n'
+        printf '  curl -sSL https://open-lzt.dev/get/flow.sh | sudo bash -s -- \\\n'
         printf '    --module steam-autobuy --param max_price=10 --run\n\n'
         printf '  --module M       модуль из каталога\n'
         printf '  --param k=v      параметр модуля, можно несколько\n'

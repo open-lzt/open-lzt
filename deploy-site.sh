@@ -20,7 +20,7 @@
 # as <root>.prev — that is the rollback.
 set -euo pipefail
 
-DOMAIN="${DOMAIN:-open-lzt.chqcode.com}"
+DOMAIN="${DOMAIN:-open-lzt.dev}"
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SITE_SRC="$REPO_DIR/site"
