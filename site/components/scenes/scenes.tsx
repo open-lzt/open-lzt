@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
+
+import { runCommand } from '@/lib/site';
 
 import type { SceneId } from '@/content/types';
 import { Icon } from '@/components/ui/Icon';
@@ -77,7 +79,10 @@ function Typewriter({ text, active }: { text: string; active: boolean }) {
 
 function TestnetScene() {
   const [prod, setProd] = useState(false);
-  const host = prod ? 'api.lzt.market' : '127.0.0.1:8000';
+  // 8765 — порт тестнета (`deploy/systemd/open-lzt-testnet.service`), а не 8000: на 8000 живёт
+  // API движка. Число уехало неверным при переезде сайта в монорепо, и на публичной странице
+  // это выглядело как рабочий адрес, по которому ничего нет.
+  const host = prod ? 'api.lzt.market' : '127.0.0.1:8765';
 
   return (
     <div className={`scene tn-scene${prod ? ' prod' : ''}`}>
@@ -297,10 +302,13 @@ function StreamedMessage({
   return (
     <div className={`msg ${role}`}>
       {words.map((word, i) => (
-        <span key={i} className={`w${i < shown ? ' in' : ''}`}>
-          {word}
+        // Разделитель стоит СНАРУЖИ span: `.w` — inline-block, а inline-block съедает
+        // хвостовой пробел внутри себя, и слова слипались. Правка существовала и потерялась
+        // при переезде сайта в монорепо; вернулась 17.08 вместе с этим комментарием.
+        <Fragment key={i}>
+          <span className={`w${i < shown ? ' in' : ''}`}>{word}</span>
           {i < words.length - 1 ? ' ' : ''}
-        </span>
+        </Fragment>
       ))}
     </div>
   );
@@ -391,7 +399,12 @@ function MonoScene() {
       {(inView) => (
         <>
           <div className="term-body">
-            {highlight('# весь стенд одной командой\n$ git clone --recursive https://github.com/open-lzt/open-lzt.git /opt/open-lzt')}
+            {/* Команда берётся у того же генератора, что и весь остальной сайт: подпись обещает
+                «одной командой», а импорт принёс сюда голый `git clone` — то есть сцена учила
+                не тому, чему учит соседний блок установки. */}
+            {highlight(
+              `# весь стенд одной командой\n$ ${runCommand('all')}\n# скрипт сам клонирует репозиторий в /opt/open-lzt`
+            )}
           </div>
           <Ticker active={inView} every={220} onTick={() => setLit((n) => Math.min(n + 1, SUBMODULES.length))} />
           <div className="submods">
